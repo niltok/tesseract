@@ -1,0 +1,12 @@
+{
+  "qq": 0,
+  "qq_pwd": "",
+  "qq_admin": [0],
+  "tg_token": "",
+  "connect": [
+    {
+      "qq": 0,
+      "tg": 0
+    }
+  ]
+}
