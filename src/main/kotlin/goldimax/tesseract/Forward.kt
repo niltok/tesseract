@@ -49,40 +49,38 @@ class Forward(private val bot: UniBot) {
     }
 
     private fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
-        val connect = connect.find { x -> x.tg == msg.chat.id }
+        val connect = connect.find { x -> x.tg == msg.chat.id } ?: return@lambda
         fun getNick(msg: Message): String {
             return msg.from?.let { from ->
                 "${from.first_name} ${from.last_name.orEmpty()}: "
             }.orEmpty()
         }
 
-        if (connect == null) return@lambda
         val qGroup = bot.qq.groups[connect.qq]
         val nick = getNick(msg).toMessage()
-        if (msg.text != null) {
-            val cap = if (msg.reply_to_message != null) {
-                val rMsg = msg.reply_to_message!!
+        msg.text?.let { text ->
+            val cap = msg.reply_to_message?.let { rMsg ->
                 val rNick = getNick(rMsg)
                 "[Reply👆${rNick}]".toMessage()
-            } else "".toMessage()
-            qGroup.sendMessage(cap.plus(nick.plus(msg.text!!)))
+            } ?: "".toMessage()
+            qGroup.sendMessage(cap.plus(nick + text))
         }
 
         // TODO: Need to fix file type error
         suspend fun filePath(fileID: String) =
             "https://api.telegram.org/file/bot${bot.tgToken}/${bot.tg.getFile(fileID).await().file_path}"
-        if (msg.photo != null) {
+        msg.photo?.let {
             val qMsg = nick
-            msg.photo!!.forEach {
+            it.forEach {
                 qMsg.plus(qGroup.uploadImage(URL(filePath(it.file_id))))
             }
             qGroup.sendMessage(qMsg)
         }
-        if (msg.sticker != null) {
-            qGroup.sendMessage(nick.plus(qGroup.uploadImage(URL(filePath(msg.sticker!!.file_id)))))
+        msg.sticker?.let {
+            qGroup.sendMessage(nick + qGroup.uploadImage(URL(filePath(it.file_id))))
         }
-        if (msg.animation != null) {
-            qGroup.sendMessage(nick.plus(qGroup.uploadImage(URL(filePath(msg.animation!!.file_id)))))
+        msg.animation?.let {
+            qGroup.sendMessage(nick + qGroup.uploadImage(URL(filePath(it.file_id))))
         }
     }
 
