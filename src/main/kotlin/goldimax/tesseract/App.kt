@@ -2,7 +2,7 @@ package goldimax.tesseract
 
 import kotlinx.coroutines.*
 
-fun main(): Unit = runBlocking {
+fun main() = runBlocking<Unit> {
     val bot = UniBot("conf.json")
 
     val picture = Picture(bot, "pic")
@@ -11,7 +11,5 @@ fun main(): Unit = runBlocking {
     tgOther(bot)
 
     bot.join()
-
-    Unit
 }
 

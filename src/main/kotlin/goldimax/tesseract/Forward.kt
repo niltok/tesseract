@@ -21,26 +21,29 @@ class Forward(private val bot: UniBot) {
         val connect = connect.find { x -> x.qq == subject.id }
 
         fun getNick(qq: Member) = when {
-            qq.nameCard != "" -> qq.nameCard
-            qq.nick != "" -> qq.nick
+            qq.nameCard.isNotEmpty() -> qq.nameCard
+            qq.nick.isNotEmpty() -> qq.nick
             else -> qq.id.toString()
         }
 
         if (connect != null) {
             val tGroup = connect.tg
             message.forEach {
-                var msg = ""
+                val msg = StringBuilder()
                 when (it) {
-                    is PlainText -> msg += it
+                    is PlainText -> msg.append(it)
                     is Image -> this@Forward.bot.tg.sendPhoto(tGroup, it.url(), "${getNick(sender)}: ")
-                    is At -> msg += it.display + " "
-                    is AtAll -> msg += AtAll.display + " "
-                    is RichMessage -> msg += "{${it.content}}"
-                    is QuoteReply -> msg +=
-                        "[Reply👆${getNick(subject.members[it.source.fromId])}: ${it.source.originalMessage.contentToString()}]"
-                    is Face -> msg += it.contentToString()
+                    is At -> msg.append(it.display).append(" ")
+                    is AtAll -> msg.append(AtAll.display).append(" ")
+                    is RichMessage -> msg.append("{").append(it.content).append("}")
+                    is QuoteReply -> msg.append("[Reply👆")
+                        .append(getNick(subject.members[it.source.fromId]))
+                        .append(": ")
+                        .append(it.source.originalMessage.contentToString())
+                        .append("]")
+                    is Face -> msg.append(it.contentToString())
                 }
-                if (msg != "") this@Forward.bot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
+                if (msg.isNotEmpty()) this@Forward.bot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
             }
         }
     }
@@ -48,12 +51,9 @@ class Forward(private val bot: UniBot) {
     private fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
         val connect = connect.find { x -> x.tg == msg.chat.id }
         fun getNick(msg: Message): String {
-            return if (msg.from != null)
-                "${msg.from!!.first_name} ${
-                if (msg.from!!.last_name != null)
-                    msg.from!!.last_name!!
-                else ""}: "
-            else ""
+            return msg.from?.let { from ->
+                "${from.first_name} ${from.last_name.orEmpty()}: "
+            }.orEmpty()
         }
 
         if (connect == null) return@lambda

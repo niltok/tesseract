@@ -3,7 +3,7 @@ import java.text.*
 
 plugins {
     java
-    kotlin("jvm") version "1.3.60"
+    kotlin("jvm") version "1.3.71"
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
 }
@@ -11,8 +11,9 @@ plugins {
 apply(plugin = "com.github.johnrengelman.shadow")
 apply(plugin = "java")
 
-group = "tesseract"
+group = "goldimax.tesseract"
 version = "1.0-SNAPSHOT"
+val MAIN_CLASS = "goldimax.tesseract.AppKt"
 
 repositories {
     mavenCentral()
@@ -30,7 +31,7 @@ dependencies {
     implementation("com.jcabi:jcabi-manifests:0.7.5")
 }
 
-configure<JavaPluginConvention> {
+java {
     sourceCompatibility = JavaVersion.VERSION_1_8
 }
 tasks {
@@ -43,23 +44,23 @@ tasks {
 }
 
 application {
-    mainClassName = "goldimax.tesseract.AppKt"
+    mainClassName = MAIN_CLASS
 }
 
-val run by tasks.getting(JavaExec::class) {
+tasks.withType<JavaExec> {
     standardInput = System.`in`
 }
 
-val jar by tasks.getting(Jar::class) {
+tasks.withType<Jar> {
     manifest {
-        attributes["Main-Class"] = "goldimax.tesseract.AppKt"
+        attributes["Main-Class"] = MAIN_CLASS
     }
 }
 
 val shadowJar: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar by tasks
 shadowJar.apply {
-    manifest.attributes.apply {
-        put("Main-Class", "goldimax.tesseract.Appkt")
+    manifest {
+        attributes["Main-Class"] = MAIN_CLASS
+        attributes["Version"] = SimpleDateFormat("yyyy/M/dd HH:mm:ss").format(Date())
     }
-    manifest.attributes["Version"] = SimpleDateFormat("yyyy/M/dd HH:mm:ss").format(Date())
 }
