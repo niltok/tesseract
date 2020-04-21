@@ -12,7 +12,7 @@ fun getJson(fileName: String): JsonObject =
 fun putJson(fileName: String, obj: JsonObject) =
     File(fileName).writeText(obj.toJsonString(true))
 
-suspend fun ContactMessage.error(after: suspend () -> Unit) = try {
+suspend inline fun ContactMessage.error(after: () -> Unit) = try {
     after()
 } catch (e: Exception) {
     reply(e.localizedMessage)

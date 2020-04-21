@@ -23,7 +23,7 @@ fun qqOther(bot: UniBot) {
                 testSu(bot)
 
                 val id = message[PlainText].toString().removePrefix("plz add su").trim().let {
-                    if (it == "") message[At].target
+                    if (it.isEmpty()) message[At].target
                     else it.toLong()
                 }
                 bot.qqAdmin.add(id)
@@ -43,7 +43,7 @@ fun qqOther(bot: UniBot) {
                     URL("https://v1.hitokoto.cn/")
                         .openConnection().getInputStream()
                 ) as JsonObject
-                reply("「${json.string("hitokoto")!!}」 —— ${json.string("from")!!}")
+                reply("「${json.string("hitokoto")}」 —— ${json.string("from")}")
             }
         }
         case("kiss me") quoteReply (Face(Face.qinqin))

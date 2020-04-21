@@ -17,6 +17,7 @@ class Picture(
         File("$name.json").run {
             if (!exists()) {
                 createNewFile()
+                //language=JSON
                 writeText("""{"ids": []}""")
             }
         }
@@ -26,7 +27,7 @@ class Picture(
     private val json = getJson("$name.json")
 
     val dic = json.array<JsonObject>("ids")!!.map { x ->
-        Pair(x.string("name")!!, x.string("uuid")!!)
+        x.string("name")!! to x.string("uuid")!!
     }.toMap().toMutableMap()
 
     fun save() {
@@ -47,31 +48,27 @@ class Picture(
     private fun handleSearch(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("look up").trim().toRegex()
-            quoteReply(dic.keys.filter { it.contains(picName) }.reduce { a, b -> a + "\n" + b })
+            quoteReply(dic.keys.filter { picName in it }.joinToString(separator = "\n"))
         }
     }
 
     private fun handleReq(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("say").trim()
-            check(picName != "") { "Pardon?" }
+            check(picName.isNotEmpty()) { "Pardon?" }
             val maybe = dic[picName]
-            check(maybe != null) { "Cannot find picture called $picName." }
-            reply(uploadImage(File("pic/${maybe}")))
+            checkNotNull(maybe) { "Cannot find picture called $picName." }
+            reply(uploadImage(File("pic/$maybe")))
         }
     }
 
     private fun handleAdd(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("remember").trim()
-            check(picName != "") { "How would you call this picture? Please try again." }
+            check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
             check(!dic.containsKey(picName)) { "There is already a picture called $picName." }
             val picPath = UUID.randomUUID()
-            message[Image].downloadTo(
-                File(
-                    "pic/$picPath"
-                )
-            )
+            message[Image].downloadTo(File("pic/$picPath"))
             dic[picName] = picPath.toString()
             save()
             quoteReply("Done.")
