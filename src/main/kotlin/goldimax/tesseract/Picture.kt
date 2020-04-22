@@ -10,7 +10,7 @@ import java.io.File
 import java.util.*
 
 class Picture(
-    private val bot: UniBot,
+    private val uniBot: UniBot,
     private val name: String
 ) {
     init {
@@ -38,10 +38,24 @@ class Picture(
     }
 
     init {
-        bot.qq.subscribeMessages {
+        uniBot.qq.subscribeMessages {
             startsWith("remember", onEvent = handleAdd())
             startsWith("say", onEvent = handleReq())
             startsWith("look up", onEvent = handleSearch())
+            startsWith("plz forget", onEvent = handleRemove())
+        }
+    }
+
+    private fun handleRemove(): suspend ContactMessage.(String) -> Unit = {
+        error {
+            testSu(uniBot)
+
+            val picName = message[PlainText].contentToString().removePrefix("plz forget").trim()
+            check(picName.isNotEmpty()) { "Pardon?" }
+            checkNotNull(dic[picName]) { "Cannot find picture called $picName" }
+            dic.remove(picName)
+            save()
+            quoteReply("Done.")
         }
     }
 

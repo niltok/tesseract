@@ -19,4 +19,4 @@ suspend inline fun ContactMessage.error(after: () -> Unit) = try {
 }
 
 fun ContactMessage.testSu(bot: UniBot) =
-    check(bot.isSuperuser(sender.id)) { "Sorry, you are not superuser." }
+    check(bot.suMgr.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }

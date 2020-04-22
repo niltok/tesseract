@@ -7,7 +7,8 @@ fun tgOther(bot: UniBot) {
         bot.tg.sendMessage(
             msg.chat.id,
             """
-            Copy. I am online. 
+            Copy. I am online.
+            You are ${msg.from?.id}.
             Here is ${msg.chat.id}.
             Build: ${Manifests.read("Version")}
             """.trimIndent()

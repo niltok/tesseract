@@ -1,5 +1,6 @@
 import java.util.*
 import java.text.*
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     java
@@ -29,6 +30,7 @@ dependencies {
     implementation("com.github.elbekD:kt-telegram-bot:1.2.5")
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
     implementation("com.jcabi:jcabi-manifests:0.7.5")
+    compile(fileTree("src/main/resources/libs"))
 }
 
 java {
@@ -63,4 +65,8 @@ shadowJar.apply {
         attributes["Main-Class"] = MAIN_CLASS
         attributes["Version"] = SimpleDateFormat("yyyy/M/dd HH:mm:ss").format(Date())
     }
+}
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.kotlinOptions {
+    freeCompilerArgs = listOf("-Xinline-classes")
 }

@@ -8,14 +8,27 @@ import net.mamoe.mirai.*
 import com.elbekD.bot.Bot as tgBot
 import net.mamoe.mirai.Bot as qqBot
 
+inline class QQUser(val id: Long)
+inline class TGUser(val id: Long)
+
+class SUManager(private val conf: JsonObject) {
+    val qqAdmin = conf.array<Long>("qq_admin")!!.toMutableList()
+    private val tgAdmin = conf.array<Long>("tg_admin")!!.toMutableList()
+
+    // Notice: Use 'contains' would not work.
+    fun isSuperuser(user: QQUser) = qqAdmin.find { it == user.id } != null
+    fun isSuperuser(user: TGUser) = tgAdmin.find { it == user.id } != null
+}
+
 class UniBot(private val fileName: String) {
 
     val conf = getJson(fileName)
 
+    val suMgr = SUManager(conf)
+
     val tgToken = conf.string("tg_token")!!
-    private val qqID = conf.long("qq")!!
+    private val qqID = conf.long("qq_id")!!
     private val qqPwd = conf.string("qq_pwd")!!
-    val qqAdmin = conf.array<Long>("qq_admin")!!.toMutableList()
 
     val qq = qqBot(qqID, qqPwd)
     val tg = tgBot.createPolling("", tgToken)
@@ -25,8 +38,6 @@ class UniBot(private val fileName: String) {
         runBlocking { qq.alsoLogin() }
     }
 
-    // Notice: Use 'contains' would not work.
-    fun isSuperuser(id: Long) = qqAdmin.find { it == id } != null
     fun save() = putJson(fileName, conf)
     suspend fun join() = qq.join()
 }

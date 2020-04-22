@@ -13,7 +13,7 @@ fun qqOther(bot: UniBot) {
         case("rainbow") {
             val info = """
                 Copy. I am online.${""/*Your ID is ${sender.id}.*/}
-                You are${if (bot.isSuperuser(sender.id)) "" else " not"} superuser.
+                You are${if (bot.suMgr.isSuperuser(QQUser(sender.id))) "" else " not"} superuser.
                 Build: ${Manifests.read("Version")}
             """.trimIndent()
             quoteReply(info)
@@ -26,14 +26,14 @@ fun qqOther(bot: UniBot) {
                     if (it.isEmpty()) message[At].target
                     else it.toLong()
                 }
-                bot.qqAdmin.add(id)
+                bot.suMgr.qqAdmin.add(id)
                 bot.save()
                 quoteReply("Done. $id has become superuser.")
             }
         }
         startsWith("is su") {
             error {
-                if (bot.isSuperuser(message[At].target)) quoteReply("Yes.")
+                if (bot.suMgr.isSuperuser(QQUser(message[At].target))) quoteReply("Yes.")
                 else quoteReply("No.")
             }
         }
