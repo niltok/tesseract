@@ -56,7 +56,6 @@ class Forward(private val uniBot: UniBot) {
                             uniBot.tg.sendPhoto(tGroup, it.image.url(), "${getNick(sender)}: [闪照]")
                         else msg.append("[闪照]")
                     }
-                    else -> msg.append("[未支持消息]")
                 }
                 if (msg.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
             }
