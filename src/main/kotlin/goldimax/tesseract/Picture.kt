@@ -34,7 +34,7 @@ class Picture(
         json["ids"] = JsonArray(dic.map { (a, b) ->
             JsonObject(mapOf("name" to a, "uuid" to b))
         })
-        putJson(name, json)
+        putJson("$name.json", json)
     }
 
     init {
