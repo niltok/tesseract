@@ -26,7 +26,7 @@ class Picture(
 
     private val json = getJson("$name.json")
 
-    val dic = json.array<JsonObject>("ids")!!.map { x ->
+    private val dic = json.array<JsonObject>("ids")!!.map { x ->
         x.string("name")!! to x.string("uuid")!!
     }.toMap().toMutableMap()
 

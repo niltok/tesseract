@@ -27,7 +27,7 @@ fun qqOther(bot: UniBot) {
                     else it.toLong()
                 }
                 bot.suMgr.qqAdmin.add(id)
-                bot.save()
+                bot.suMgr.save()
                 quoteReply("Done. $id has become superuser.")
             }
         }
@@ -41,7 +41,7 @@ fun qqOther(bot: UniBot) {
             error {
                 val json = Parser.default().parse(
                     URL("https://v1.hitokoto.cn/")
-                        .openConnection().getInputStream()
+                        .openStream()
                 ) as JsonObject
                 reply("「${json.string("hitokoto")}」 —— ${json.string("from")}")
             }

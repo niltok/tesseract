@@ -3,18 +3,20 @@ package goldimax.tesseract
 import com.beust.klaxon.JsonObject
 import com.elbekD.bot.http.await
 import com.elbekD.bot.types.Message
+import com.luciad.imageio.webp.WebPReadParam
 import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.GroupMessage
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.uploadImage
 import java.net.URL
+import javax.imageio.ImageIO
 
-class Forward(private val bot: UniBot) {
+class Forward(private val uniBot: UniBot) {
 
     data class Connection(val qq: Long, val tg: Long)
 
-    private val connect = bot.conf.array<JsonObject>("connect")!!
+    private val connect = uniBot.conf.array<JsonObject>("connect")!!
         .map { Connection(it.long("qq")!!, it.long("tg")!!) }
 
     private fun handleQQ(): suspend GroupMessage.(String) -> Unit = {
@@ -32,7 +34,8 @@ class Forward(private val bot: UniBot) {
                 val msg = StringBuilder()
                 when (it) {
                     is PlainText -> msg.append(it)
-                    is Image -> this@Forward.bot.tg.sendPhoto(tGroup, it.url(), "${getNick(sender)}: ")
+                    is Image ->
+                        uniBot.tg.sendPhoto(tGroup, it.url(), "${getNick(sender)}: ")
                     is At -> msg.append(it.display).append(" ")
                     is AtAll -> msg.append(AtAll.display).append(" ")
                     is RichMessage -> msg.append("{").append(it.content).append("}")
@@ -43,7 +46,7 @@ class Forward(private val bot: UniBot) {
                         .append("]")
                     is Face -> msg.append(it.contentToString())
                 }
-                if (msg.isNotEmpty()) this@Forward.bot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
+                if (msg.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
             }
         }
     }
@@ -56,7 +59,7 @@ class Forward(private val bot: UniBot) {
             }.orEmpty()
         }
 
-        val qGroup = bot.qq.groups[connect.qq]
+        val qGroup = uniBot.qq.groups[connect.qq]
         val nick = getNick(msg).toMessage()
         msg.text?.let { text ->
             val cap = msg.reply_to_message?.let { rMsg ->
@@ -66,28 +69,34 @@ class Forward(private val bot: UniBot) {
             qGroup.sendMessage(cap.plus(nick + text))
         }
 
-        // TODO: Need to fix file type error
         suspend fun filePath(fileID: String) =
-            "https://api.telegram.org/file/bot${bot.tgToken}/${bot.tg.getFile(fileID).await().file_path}"
+            "https://api.telegram.org/file/bot${uniBot.tgToken}/${
+            uniBot.tg.getFile(fileID).await().file_path}"
         msg.photo?.let {
-            val qMsg = nick
             it.forEach {
-                qMsg.plus(qGroup.uploadImage(URL(filePath(it.file_id))))
+                nick.plus(qGroup.uploadImage(URL(filePath(it.file_id)).openStream()))
             }
-            qGroup.sendMessage(qMsg)
+            qGroup.sendMessage(nick)
         }
         msg.sticker?.let {
-            qGroup.sendMessage(nick + qGroup.uploadImage(URL(filePath(it.file_id))))
+            val image = ImageIO.getImageReadersByMIMEType("image/webp")
+                .next().apply {
+                    input = URL(filePath(it.file_id)).openStream()
+                }.read(0, WebPReadParam().apply { isBypassFiltering = true })
+            qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
         msg.animation?.let {
-            qGroup.sendMessage(nick + qGroup.uploadImage(URL(filePath(it.file_id))))
+            qGroup.sendMessage(
+                nick + qGroup
+                    .uploadImage(URL(filePath(it.file_id)).openStream())
+            )
         }
     }
 
     init {
-        bot.qq.subscribeGroupMessages {
+        uniBot.qq.subscribeGroupMessages {
             contains("", onEvent = handleQQ())
         }
-        bot.tg.onMessage(handleTg())
+        uniBot.tg.onMessage(handleTg())
     }
 }
