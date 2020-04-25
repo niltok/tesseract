@@ -43,19 +43,22 @@ class Forward(private val uniBot: UniBot) {
                         uniBot.tg.sendPhoto(tGroup, it.url(), "${getNick(sender)}: ")
                     is At -> msg.append(it.display).append(" ")
                     is AtAll -> msg.append(AtAll.display).append(" ")
-                    is RichMessage -> msg.append("{").append(it.content).append("}")
                     is QuoteReply -> msg.append("[Reply👆")
                         .append(getNick(subject.members[it.source.fromId]))
                         .append(": ")
                         .append(it.source.originalMessage.contentToString())
                         .append("]")
                     is Face -> msg.append(it.contentToString())
-                    is ForwardMessage -> msg.append(it.contentToString())
+                    is ForwardMessage ->
+                        msg.append("[Forward]\n").append(it.nodeList.joinToString("\n") {
+                            "${it.senderName}: ${it.message.contentToString()}"
+                        })
                     is FlashImage -> {
-                        if (forwardFlash)
+                        if (forwardFlash) {
                             uniBot.tg.sendPhoto(tGroup, it.image.url(), "${getNick(sender)}: [闪照]")
-                        else msg.append("[闪照]")
+                        } else msg.append("[闪照]")
                     }
+                    is RichMessage -> msg.append("{").append(it.content).append("}")
                 }
                 if (msg.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
             }
@@ -86,34 +89,36 @@ class Forward(private val uniBot: UniBot) {
             uniBot.tg.getFile(fileID).await().file_path}"
         msg.photo?.let {
             it.forEach {
-                nick.plus(qGroup.uploadImage(URL(filePath(it.file_id)).openStream()))
+                val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
+                nick.plus(qGroup.uploadImage(image).also { println(it.imageId) })
             }
             qGroup.sendMessage(nick)
         }
         msg.sticker?.let {
-            val image = ImageIO.getImageReadersByMIMEType("image/webp")
-                .next().apply {
-                    input = URL(filePath(it.file_id)).openStream()
-                }.read(0, WebPReadParam().apply { isBypassFiltering = true })
+            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
             qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
         msg.animation?.let {
-            qGroup.sendMessage(
-                nick + qGroup
-                    .uploadImage(URL(filePath(it.file_id)).openStream())
-            )
+            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
+            qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
     }
 
     init {
         uniBot.qq.subscribeGroupMessages {
             case("plz do not forward flash image") {
+                testSu(uniBot)
                 forwardFlash = false
                 quoteReply("Done.")
             }
             case("plz forward flash image") {
+                testSu(uniBot)
                 forwardFlash = true
                 quoteReply("Done.")
+            }
+
+            startsWith("QQIMG", true) {
+                quoteReply(Image(it.trim()))
             }
 
             contains("", onEvent = handleQQ())
