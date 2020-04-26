@@ -1,4 +1,6 @@
 /build/
 /.gradle/
 /.idea/
-**/conf.json
+pic
+conf.json
+pic.json
