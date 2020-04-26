@@ -94,12 +94,11 @@ class Forward(private val uniBot: UniBot) {
         suspend fun filePath(fileID: String) =
             "https://api.telegram.org/file/bot${uniBot.tgToken}/${
             uniBot.tg.getFile(fileID).await().file_path}"
-        msg.photo?.let {
-            it.forEach {
-                val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
-                nick.plus(qGroup.uploadImage(image).also { println(it.imageId) })
-            }
-            qGroup.sendMessage(nick)
+
+        // Usually, it have multi PhotoSize, get the biggest
+        msg.photo?.maxBy { it.file_size }?.let { it ->
+            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
+            qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
         msg.sticker?.let {
             val filepath = filePath(it.file_id)
