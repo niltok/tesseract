@@ -3,12 +3,12 @@ package goldimax.tesseract
 import com.beust.klaxon.JsonObject
 import com.elbekD.bot.http.await
 import com.elbekD.bot.types.Message
-import com.luciad.imageio.webp.WebPReadParam
 import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.GroupMessage
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.uploadImage
+import org.apache.log4j.LogManager
 import java.net.URL
 import javax.imageio.ImageIO
 
@@ -16,6 +16,8 @@ class Forward(private val uniBot: UniBot) {
 
     private var drive = false
     private var forwardFlash = true
+
+    private val logger = LogManager.getLogger(this.javaClass)
 
     data class Connection(val qq: Long, val tg: Long)
 
@@ -25,7 +27,7 @@ class Forward(private val uniBot: UniBot) {
     private fun handleQQ(): suspend GroupMessage.(String) -> Unit = lambda@{
         if (drive) return@lambda
 
-        val connect = connect.find { x -> x.qq == subject.id }
+        val connect = connect.find { x -> x.qq == subject.id } ?: return@lambda
 
         fun getNick(qq: Member) = when {
             qq.nameCard.isNotEmpty() -> qq.nameCard
@@ -33,35 +35,38 @@ class Forward(private val uniBot: UniBot) {
             else -> qq.id.toString()
         }
 
-        if (connect != null) {
-            val tGroup = connect.tg
-            message.forEach {
-                val msg = StringBuilder()
-                when (it) {
-                    is PlainText -> msg.append(it)
-                    is Image ->
-                        uniBot.tg.sendPhoto(tGroup, it.url(), "${getNick(sender)}: ")
-                    is At -> msg.append(it.display).append(" ")
-                    is AtAll -> msg.append(AtAll.display).append(" ")
-                    is QuoteReply -> msg.append("[Reply👆")
-                        .append(getNick(subject.members[it.source.fromId]))
-                        .append(": ")
-                        .append(it.source.originalMessage.contentToString())
-                        .append("]")
-                    is Face -> msg.append(it.contentToString())
-                    is ForwardMessage ->
-                        msg.append("[Forward]\n").append(it.nodeList.joinToString("\n") {
-                            "${it.senderName}: ${it.message.contentToString()}"
-                        })
-                    is FlashImage -> {
-                        if (forwardFlash) {
-                            uniBot.tg.sendPhoto(tGroup, it.image.url(), "${getNick(sender)}: [闪照]")
-                        } else msg.append("[闪照]")
-                    }
-                    is RichMessage -> msg.append("{").append(it.content).append("}")
+        val tGroup = connect.tg
+        message.forEach { msg ->
+            logger.debug("forward qq $msg")
+
+            val msgStringBuilder = StringBuilder()
+            when (msg) {
+                is PlainText -> msgStringBuilder.append(msg)
+                is Image ->
+                    uniBot.tg.sendPhoto(tGroup, msg.url(), "${getNick(sender)}: ")
+                is At -> msgStringBuilder.append(msg.display).append(" ")
+                is AtAll -> msgStringBuilder.append(AtAll.display).append(" ")
+                is QuoteReply -> msgStringBuilder.append("[Reply👆")
+                    .append(getNick(subject.members[msg.source.fromId]))
+                    .append(": ")
+                    .append(msg.source.originalMessage.contentToString())
+                    .append("]")
+                is Face -> msgStringBuilder.append(msg.contentToString())
+                is ForwardMessage ->
+                    msgStringBuilder.append("[Forward]\n").append(msg.nodeList.joinToString("\n") {
+                        "${it.senderName}: ${it.message.contentToString()}"
+                    })
+                is FlashImage -> {
+                    if (forwardFlash) {
+                        uniBot.tg.sendPhoto(tGroup, msg.image.url(), "${getNick(sender)}: [闪照]")
+                    } else msgStringBuilder.append("[闪照]")
                 }
-                if (msg.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msg")
+                is RichMessage -> {
+                    // TODO: process XML "聊天记录"
+                    msgStringBuilder.append("{").append(msg.content).append("}")
+                }
             }
+            if (msgStringBuilder.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msgStringBuilder")
         }
     }
 
@@ -75,6 +80,8 @@ class Forward(private val uniBot: UniBot) {
         }
 
         val qGroup = uniBot.qq.groups[connect.qq]
+
+        logger.debug("forward tg $msg")
         val nick = getNick(msg).toMessage()
         msg.text?.let { text ->
             val cap = msg.reply_to_message?.let { rMsg ->
@@ -95,8 +102,14 @@ class Forward(private val uniBot: UniBot) {
             qGroup.sendMessage(nick)
         }
         msg.sticker?.let {
-            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
-            qGroup.sendMessage(nick + qGroup.uploadImage(image))
+            val filepath = filePath(it.file_id)
+            if (filepath.endsWith(".tgs")) {
+                // TODO: Support .tgs format animated sticker
+                qGroup.sendMessage(nick + " Unsupported .tgs format animated sticker")
+            } else {
+                val image = ImageIO.read(URL(filepath).openStream())
+                qGroup.sendMessage(nick + qGroup.uploadImage(image))
+            }
         }
         msg.animation?.let {
             val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
