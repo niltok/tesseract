@@ -52,10 +52,10 @@ class Forward(private val uniBot: UniBot) {
                     .append(msg.source.originalMessage.contentToString())
                     .append("]")
                 is Face -> msgStringBuilder.append(msg.contentToString())
-                is ForwardMessage ->
-                    msgStringBuilder.append("[Forward]\n").append(msg.nodeList.joinToString("\n") {
-                        "${it.senderName}: ${it.message.contentToString()}"
-                    })
+                is ForwardMessage -> msg.nodeList.joinTo(
+                    msgStringBuilder.append("[Forward]\n"),
+                    "\n"
+                ) { "${it.senderName}: ${it.message.contentToString()}" }
                 is FlashImage -> {
                     if (forwardFlash) {
                         uniBot.tg.sendPhoto(tGroup, msg.image.url(), "${getNick(sender)}: [闪照]")
