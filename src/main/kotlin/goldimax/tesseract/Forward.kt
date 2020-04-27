@@ -96,7 +96,7 @@ class Forward(private val uniBot: UniBot) {
             uniBot.tg.getFile(fileID).await().file_path}"
 
         // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
-        msg.photo?.maxBy { it.file_size }?.let { it ->
+        msg.photo?.maxBy { it.file_size }?.let {
             val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
             qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
