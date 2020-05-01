@@ -12,6 +12,8 @@ import net.mamoe.mirai.Bot as qqBot
 inline class QQUser(val id: Long)
 inline class TGUser(val id: Long)
 
+typealias SubscribeType = (UniBot) -> Unit
+
 class SUManager(private val uniBot: UniBot) {
     val qqAdmin = uniBot.conf.array<Long>("qq_admin")!!.toMutableList()
     val tgAdmin = uniBot.conf.array<Long>("tg_admin")!!.toMutableList()
@@ -44,7 +46,13 @@ class UniBot(private val fileName: String) {
         runBlocking { qq.alsoLogin() }
     }
 
-    val subscribes: MutableList<(UniBot) -> Unit> = mutableListOf()
+
+    private val subscribes: MutableList<SubscribeType> = mutableListOf()
+
+    fun subscribeAll(subscribes: Collection<SubscribeType>): UniBot {
+        this.subscribes.addAll(subscribes)
+        return this
+    }
 
     fun save() = putJson(fileName, conf)
 

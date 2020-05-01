@@ -12,12 +12,11 @@ fun main() = runBlocking<Unit> {
     qqOther(bot)
     tgOther(bot)
 
-    bot.subscribes.addAll(
+    bot.subscribeAll(
         listOf(
+            manager,
             forward
         )
-    )
-
-    bot.start()
+    ).start()
 }
 
