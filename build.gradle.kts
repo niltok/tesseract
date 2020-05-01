@@ -31,6 +31,8 @@ dependencies {
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
     implementation("com.jcabi:jcabi-manifests:0.7.5")
     implementation(fileTree("src/main/resources/libs"))
+    implementation("org.jsoup:jsoup:1.13.1")
+    testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 
 java {

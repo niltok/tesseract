@@ -9,6 +9,10 @@ import net.mamoe.mirai.message.GroupMessage
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.uploadImage
 import org.apache.log4j.LogManager
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+import org.jsoup.parser.Parser
+import java.beans.XMLDecoder
 import java.net.URL
 import javax.imageio.ImageIO
 
@@ -63,11 +67,17 @@ class Forward(private val uniBot: UniBot) {
                 }
                 is RichMessage -> {
                     // TODO: process XML "聊天记录"
+
                     msgStringBuilder.append("{").append(msg.content).append("}")
                 }
             }
             if (msgStringBuilder.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msgStringBuilder")
         }
+    }
+
+    companion object {
+        fun extractRichMessage(content: String): List<Element> =
+            Jsoup.parse(content, "", Parser.xmlParser()).select("title").toList()
     }
 
     private fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
