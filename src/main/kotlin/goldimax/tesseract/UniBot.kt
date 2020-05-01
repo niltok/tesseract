@@ -1,11 +1,11 @@
 package goldimax.tesseract
 
 import com.beust.klaxon.JsonArray
-import com.beust.klaxon.JsonObject
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import net.mamoe.mirai.*
+import net.mamoe.mirai.alsoLogin
+import net.mamoe.mirai.join
 import com.elbekD.bot.Bot as tgBot
 import net.mamoe.mirai.Bot as qqBot
 
@@ -44,6 +44,12 @@ class UniBot(private val fileName: String) {
         runBlocking { qq.alsoLogin() }
     }
 
+    val subscribes: MutableList<(UniBot) -> Unit> = mutableListOf()
+
     fun save() = putJson(fileName, conf)
-    suspend fun join() = qq.join()
+
+    suspend fun start() {
+        subscribes.forEach { it(this) }
+        qq.join()
+    }
 }

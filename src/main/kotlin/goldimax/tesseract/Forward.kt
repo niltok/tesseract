@@ -12,22 +12,20 @@ import org.apache.log4j.LogManager
 import java.net.URL
 import javax.imageio.ImageIO
 
-class Forward(private val uniBot: UniBot) {
+val forward: (UniBot) -> Unit = { uniBot ->
+    var drive = false
+    var forwardFlash = true
 
-    private var drive = false
-    private var forwardFlash = true
-
-    private val logger = LogManager.getLogger(this.javaClass)
+    val logger = LogManager.getLogger("forward")
 
     data class Connection(val qq: Long, val tg: Long)
 
-    private val connect = uniBot.conf.array<JsonObject>("connect")!!
+    val connects = uniBot.conf.array<JsonObject>("connect")!!
         .map { Connection(it.long("qq")!!, it.long("tg")!!) }
 
-    private fun handleQQ(): suspend GroupMessage.(String) -> Unit = lambda@{
+    fun handleQQ(): suspend GroupMessage.(String) -> Unit = lambda@{
         if (drive) return@lambda
-
-        val connect = connect.find { x -> x.qq == subject.id } ?: return@lambda
+        val connect = connects.find { x -> x.qq == subject.id } ?: return@lambda
 
         fun getNick(qq: Member) = when {
             qq.nameCard.isNotEmpty() -> qq.nameCard
@@ -70,9 +68,8 @@ class Forward(private val uniBot: UniBot) {
         }
     }
 
-    private fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
-
-        val connect = connect.find { x -> x.tg == msg.chat.id } ?: return@lambda
+    fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
+        val connect = connects.find { x -> x.tg == msg.chat.id } ?: return@lambda
         fun getNick(msg: Message): String {
             return msg.from?.let { from ->
                 "${from.first_name} ${from.last_name.orEmpty()}: "
@@ -116,34 +113,32 @@ class Forward(private val uniBot: UniBot) {
         }
     }
 
-    init {
-        uniBot.qq.subscribeGroupMessages {
-            case("plz do not forward flash image") {
-                testSu(uniBot)
-                forwardFlash = false
-                quoteReply("Done.")
-            }
-            case("plz forward flash image") {
-                testSu(uniBot)
-                forwardFlash = true
-                quoteReply("Done.")
-            }
-
-            startsWith("QQIMG", true) {
-                quoteReply(Image(it.trim()))
-            }
-
-            contains("", onEvent = handleQQ())
+    uniBot.qq.subscribeGroupMessages {
+        case("plz do not forward flash image") {
+            testSu(uniBot)
+            forwardFlash = false
+            quoteReply("Done.")
+        }
+        case("plz forward flash image") {
+            testSu(uniBot)
+            forwardFlash = true
+            quoteReply("Done.")
         }
 
-        uniBot.tg.onMessage(handleTg())
-        uniBot.tg.onCommand("/drive") { msg, _ ->
-            drive = true
-            uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+        startsWith("QQIMG", true) {
+            quoteReply(Image(it.trim()))
         }
-        uniBot.tg.onCommand("/park") { msg, _ ->
-            drive = false
-            uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-        }
+
+        contains("", onEvent = handleQQ())
+    }
+
+    uniBot.tg.onMessage(handleTg())
+    uniBot.tg.onCommand("/drive") { msg, _ ->
+        drive = true
+        uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+    }
+    uniBot.tg.onCommand("/park") { msg, _ ->
+        drive = false
+        uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
     }
 }
