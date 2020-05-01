@@ -8,14 +8,14 @@ fun main() = runBlocking<Unit> {
     BasicConfigurator.configure()
     val bot = UniBot("conf.json")
 
-    Picture(bot, "pic")
     qqOther(bot)
     tgOther(bot)
 
     bot.subscribeAll(
         listOf(
             manager,
-            forward
+            forward,
+            { uniBot: UniBot -> picture(uniBot, "pic") }
         )
     ).start()
 }

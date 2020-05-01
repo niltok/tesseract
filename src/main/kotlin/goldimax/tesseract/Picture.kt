@@ -9,24 +9,19 @@ import net.mamoe.mirai.message.data.PlainText
 import java.io.File
 import java.util.*
 
-class Picture(
-    private val uniBot: UniBot,
-    private val name: String
-) {
-    init {
-        File("$name.json").run {
-            if (!exists()) {
-                createNewFile()
-                //language=JSON
-                writeText("""{"ids": []}""")
-            }
+val picture: (UniBot, String) -> Unit = { uniBot: UniBot, name: String ->
+    File("$name.json").run {
+        if (!exists()) {
+            createNewFile()
+            //language=JSON
+            writeText("""{"ids": []}""")
         }
-        File(name).run { if (!exists()) mkdir() }
     }
+    File(name).run { if (!exists()) mkdir() }
 
-    private val json = getJson("$name.json")
+    val json = getJson("$name.json")
 
-    private val dic = json.array<JsonObject>("ids")!!.map { x ->
+    val dic = json.array<JsonObject>("ids")!!.map { x ->
         x.string("name")!! to x.string("uuid")!!
     }.toMap().toMutableMap()
 
@@ -37,16 +32,7 @@ class Picture(
         putJson("$name.json", json)
     }
 
-    init {
-        uniBot.qq.subscribeMessages {
-            startsWith("remember", onEvent = handleAdd())
-            startsWith("say", onEvent = handleReq())
-            startsWith("look up", onEvent = handleSearch())
-            startsWith("plz forget", onEvent = handleRemove())
-        }
-    }
-
-    private fun handleRemove(): suspend ContactMessage.(String) -> Unit = {
+    fun handleRemove(): suspend ContactMessage.(String) -> Unit = {
         error {
             testSu(uniBot)
 
@@ -59,14 +45,14 @@ class Picture(
         }
     }
 
-    private fun handleSearch(): suspend ContactMessage.(String) -> Unit = {
+    fun handleSearch(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("look up").trim().toRegex()
             quoteReply(dic.keys.filter { picName in it }.joinToString(separator = "\n"))
         }
     }
 
-    private fun handleReq(): suspend ContactMessage.(String) -> Unit = {
+    fun handleReq(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
@@ -76,7 +62,7 @@ class Picture(
         }
     }
 
-    private fun handleAdd(): suspend ContactMessage.(String) -> Unit = {
+    fun handleAdd(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("remember").trim()
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
@@ -87,5 +73,12 @@ class Picture(
             save()
             quoteReply("Done.")
         }
+    }
+
+    uniBot.qq.subscribeMessages {
+        startsWith("remember", onEvent = handleAdd())
+        startsWith("say", onEvent = handleReq())
+        startsWith("look up", onEvent = handleSearch())
+        startsWith("plz forget", onEvent = handleRemove())
     }
 }
