@@ -10,8 +10,14 @@ import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.uploadImage
 import org.apache.log4j.LogManager
 import org.apache.log4j.Logger
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+import org.jsoup.parser.Parser
 import java.net.URL
 import javax.imageio.ImageIO
+
+fun extractRichMessage(content: String): List<Element> =
+    Jsoup.parse(content, "", Parser.xmlParser()).select("title").toList()
 
 val logger: Logger = LogManager.getLogger("forward")
 val forward: (UniBot) -> Unit = { uniBot ->
@@ -20,7 +26,7 @@ val forward: (UniBot) -> Unit = { uniBot ->
     val connects = uniBot.conf.array<JsonObject>("connect")!!
         .map { Connection(it.long("qq")!!, it.long("tg")!!) }
 
-    fun handleQQ(): suspend GroupMessage.(String) -> Unit = lambda@{
+    val handleQQ: suspend GroupMessage.(String) -> Unit = lambda@{
         if (drive) return@lambda
         val connect = connects.find { x -> x.qq == subject.id } ?: return@lambda
 
@@ -58,14 +64,14 @@ val forward: (UniBot) -> Unit = { uniBot ->
                 }
                 is RichMessage -> {
                     // TODO: process XML "聊天记录"
-                    msgStringBuilder.append("{").append(msg.content).append("}")
+                    msgStringBuilder.append(extractRichMessage(msg.content))
                 }
             }
             if (msgStringBuilder.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msgStringBuilder")
         }
     }
 
-    fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
+    val handleTg: suspend (Message) -> Unit = lambda@{ msg ->
         val connect = connects.find { x -> x.tg == msg.chat.id } ?: return@lambda
         fun getNick(msg: Message): String {
             return msg.from?.let { from ->
@@ -110,10 +116,9 @@ val forward: (UniBot) -> Unit = { uniBot ->
         }
     }
 
-    uniBot.tg.onMessage(handleTg())
-    uniBot.qq.subscribeGroupMessages { contains("") { handleQQ() } }
+    uniBot.tg.onMessage(handleTg)
+    uniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
 }
-
 
 var drive = false
 var forwardFlash = true

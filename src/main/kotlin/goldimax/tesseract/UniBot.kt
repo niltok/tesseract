@@ -46,7 +46,6 @@ class UniBot(private val fileName: String) {
         runBlocking { qq.alsoLogin() }
     }
 
-
     private val subscribes: MutableList<SubscribeType> = mutableListOf()
 
     fun subscribeAll(subscribes: Collection<SubscribeType>): UniBot {
