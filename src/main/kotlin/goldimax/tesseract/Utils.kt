@@ -2,6 +2,7 @@ package goldimax.tesseract
 
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Parser
+import com.elbekD.bot.http.await
 import net.mamoe.mirai.message.ContactMessage
 import java.io.File
 
@@ -20,3 +21,9 @@ suspend inline fun ContactMessage.error(after: () -> Unit) = try {
 
 fun ContactMessage.testSu(bot: UniBot) =
     check(bot.suMgr.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
+
+suspend fun UniBot.tgFileUrl(fileID: String) =
+    "https://api.telegram.org/file/bot${tgToken}/${
+    tg.getFile(fileID).await().file_path}"
+
+

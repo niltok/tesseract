@@ -40,6 +40,7 @@ class UniBot(private val fileName: String) {
 
     val qq = qqBot(qqID, qqPwd)
     val tg = tgBot.createPolling("", tgToken)
+    val connections = Connections(conf.array("connect")!!)
 
     init {
         GlobalScope.launch { tg.start() }

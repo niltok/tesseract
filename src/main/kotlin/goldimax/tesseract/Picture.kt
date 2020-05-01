@@ -8,18 +8,21 @@ import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.PlainText
 import java.io.File
 import java.util.*
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.set
 
-val picture: (UniBot, String) -> Unit = { uniBot: UniBot, name: String ->
-    File("$name.json").run {
+val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
+    File("$confName.json").run {
         if (!exists()) {
             createNewFile()
             //language=JSON
             writeText("""{"ids": []}""")
         }
     }
-    File(name).run { if (!exists()) mkdir() }
+    File(confName).run { if (!exists()) mkdir() }
 
-    val json = getJson("$name.json")
+    val json = getJson("$confName.json")
 
     val dic = json.array<JsonObject>("ids")!!.map { x ->
         x.string("name")!! to x.string("uuid")!!
@@ -29,7 +32,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, name: String ->
         json["ids"] = JsonArray(dic.map { (a, b) ->
             JsonObject(mapOf("name" to a, "uuid" to b))
         })
-        putJson("$name.json", json)
+        putJson("$confName.json", json)
     }
 
     fun handleRemove(): suspend ContactMessage.(String) -> Unit = {
@@ -80,5 +83,13 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, name: String ->
         startsWith("say", onEvent = handleReq())
         startsWith("look up", onEvent = handleSearch())
         startsWith("plz forget", onEvent = handleRemove())
+    }
+
+    uniBot.tg.onCommand("/say") { msg, picName ->
+        logger.debug("say $picName with $msg")
+        check(picName == null || picName.isNotEmpty()) { "Pardon?" }
+        val uuid = dic[picName]
+        checkNotNull(uuid) { "Cannot find picture called $picName." }
+        uniBot.tg.sendPhoto(msg.chat.id, File("pic/$uuid"))
     }
 }

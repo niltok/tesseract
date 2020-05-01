@@ -1,7 +1,5 @@
 package goldimax.tesseract
 
-import com.beust.klaxon.JsonObject
-import com.elbekD.bot.http.await
 import com.elbekD.bot.types.Message
 import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.event.subscribeGroupMessages
@@ -21,14 +19,13 @@ fun extractRichMessage(content: String): List<Element> =
 
 val logger: Logger = LogManager.getLogger("forward")
 val forward: (UniBot) -> Unit = { uniBot ->
-    data class Connection(val qq: Long, val tg: Long)
-
-    val connects = uniBot.conf.array<JsonObject>("connect")!!
-        .map { Connection(it.long("qq")!!, it.long("tg")!!) }
-
     val handleQQ: suspend GroupMessage.(String) -> Unit = lambda@{
         if (drive) return@lambda
-        val connect = connects.find { x -> x.qq == subject.id } ?: return@lambda
+        val tGroup = uniBot.connections.findTGByQQ(subject.id)
+        if (tGroup == null) {
+            logger.info("cannot find connect by tg ${subject.id}")
+            return@lambda
+        }
 
         fun getNick(qq: Member) = when {
             qq.nameCard.isNotEmpty() -> qq.nameCard
@@ -36,7 +33,6 @@ val forward: (UniBot) -> Unit = { uniBot ->
             else -> qq.id.toString()
         }
 
-        val tGroup = connect.tg
         message.forEach { msg ->
             logger.debug("forward qq $msg")
 
@@ -72,14 +68,18 @@ val forward: (UniBot) -> Unit = { uniBot ->
     }
 
     val handleTg: suspend (Message) -> Unit = lambda@{ msg ->
-        val connect = connects.find { x -> x.tg == msg.chat.id } ?: return@lambda
+        val qq = uniBot.connections.findQQByTG(msg.chat.id)
+        if (qq == null) {
+            logger.info("cannot find connect by qq ${msg.chat.id}")
+            return@lambda
+        }
+        val qGroup = uniBot.qq.groups[qq]
+
         fun getNick(msg: Message): String {
             return msg.from?.let { from ->
                 "${from.first_name} ${from.last_name.orEmpty()}: "
             }.orEmpty()
         }
-
-        val qGroup = uniBot.qq.groups[connect.qq]
 
         logger.debug("forward tg $msg")
         val nick = getNick(msg).toMessage()
@@ -91,17 +91,13 @@ val forward: (UniBot) -> Unit = { uniBot ->
             qGroup.sendMessage(cap.plus(nick + text))
         }
 
-        suspend fun filePath(fileID: String) =
-            "https://api.telegram.org/file/bot${uniBot.tgToken}/${
-            uniBot.tg.getFile(fileID).await().file_path}"
-
         // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
         msg.photo?.maxBy { it.file_size }?.let {
-            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
+            val image = ImageIO.read(URL(uniBot.tgFileUrl(it.file_id)).openStream())
             qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
         msg.sticker?.let {
-            val filepath = filePath(it.file_id)
+            val filepath = uniBot.tgFileUrl(it.file_id)
             if (filepath.endsWith(".tgs")) {
                 // TODO: Support .tgs format animated sticker
                 qGroup.sendMessage(nick + " Unsupported .tgs format animated sticker")
@@ -111,7 +107,7 @@ val forward: (UniBot) -> Unit = { uniBot ->
             }
         }
         msg.animation?.let {
-            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
+            val image = ImageIO.read(URL(uniBot.tgFileUrl(it.file_id)).openStream())
             qGroup.sendMessage(nick + qGroup.uploadImage(image))
         }
     }
