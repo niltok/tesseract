@@ -9,15 +9,12 @@ import net.mamoe.mirai.message.GroupMessage
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.uploadImage
 import org.apache.log4j.LogManager
+import org.apache.log4j.Logger
 import java.net.URL
 import javax.imageio.ImageIO
 
+val logger: Logger = LogManager.getLogger("forward")
 val forward: (UniBot) -> Unit = { uniBot ->
-    var drive = false
-    var forwardFlash = true
-
-    val logger = LogManager.getLogger("forward")
-
     data class Connection(val qq: Long, val tg: Long)
 
     val connects = uniBot.conf.array<JsonObject>("connect")!!
@@ -113,6 +110,14 @@ val forward: (UniBot) -> Unit = { uniBot ->
         }
     }
 
+    uniBot.tg.onMessage(handleTg())
+    uniBot.qq.subscribeGroupMessages { contains("") { handleQQ() } }
+}
+
+
+var drive = false
+var forwardFlash = true
+val manager = { uniBot: UniBot ->
     uniBot.qq.subscribeGroupMessages {
         case("plz do not forward flash image") {
             testSu(uniBot)
@@ -128,11 +133,8 @@ val forward: (UniBot) -> Unit = { uniBot ->
         startsWith("QQIMG", true) {
             quoteReply(Image(it.trim()))
         }
-
-        contains("", onEvent = handleQQ())
     }
 
-    uniBot.tg.onMessage(handleTg())
     uniBot.tg.onCommand("/drive") { msg, _ ->
         drive = true
         uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
