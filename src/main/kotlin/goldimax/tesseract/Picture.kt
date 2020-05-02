@@ -97,7 +97,34 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
                 checkNotNull(uuid) { "Cannot find picture called $picName." }
                 sendPhoto(msg.chat.id, File("pic/$uuid"))
             } catch (e: IllegalStateException) {
-                sendMessage(msg.chat.id, e.localizedMessage)
+                sendMessage(msg.chat.id, e.localizedMessage, replyTo = msg.message_id)
+            }
+        }
+
+        onCommand("/lookup") { msg, search ->
+            logger.debug("lookup with $msg")
+            val result = search?.run {
+                dic.keys.filter { toRegex() in it }
+            } ?: dic.keys
+            if (result.isEmpty()) {
+                sendMessage(msg.chat.id, "Empty", replyTo = msg.message_id)
+            } else {
+                sendMessage(msg.chat.id, result.joinToString("\n"), replyTo = msg.message_id)
+            }
+        }
+
+        onCommand("/forget") { msg, picName ->
+            logger.debug("forget $picName with $msg")
+            try {
+                check(!picName.isNullOrBlank()) { "Pardon?" }
+                val uuid = dic[picName]
+                checkNotNull(uuid) { "Cannot find picture called $picName." }
+
+                dic.remove(picName)
+                save()
+                sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)
+            } catch (e: IllegalStateException) {
+                sendMessage(msg.chat.id, e.localizedMessage, replyTo = msg.message_id)
             }
         }
     }

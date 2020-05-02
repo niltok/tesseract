@@ -122,13 +122,15 @@ object Forward {
             }
         }
 
-        uniBot.tg.onCommand("/drive") { msg, _ ->
-            drive = true
-            uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-        }
-        uniBot.tg.onCommand("/park") { msg, _ ->
-            drive = false
-            uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+        uniBot.tg.run {
+            onCommand("/drive") { msg, _ ->
+                drive = true
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+            }
+            onCommand("/park") { msg, _ ->
+                drive = false
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+            }
         }
     }
 
