@@ -22,7 +22,7 @@ val forward: (UniBot) -> Unit = { uniBot ->
         if (drive) return@lambda
         val tGroup = uniBot.connections.findTGByQQ(subject.id)
         if (tGroup == null) {
-            logger.info("cannot find connect by tg ${subject.id}")
+            logger.info("cannot find connect by qq ${subject.id}")
             return@lambda
         }
 
@@ -60,7 +60,7 @@ val forward: (UniBot) -> Unit = { uniBot ->
     val handleTg: suspend (Message) -> Unit = lambda@{ msg ->
         val qq = uniBot.connections.findQQByTG(msg.chat.id)
         if (qq == null) {
-            logger.info("cannot find connect by qq ${msg.chat.id}")
+            logger.info("cannot find connect by tg ${msg.chat.id}")
             return@lambda
         }
         val qGroup = uniBot.qq.groups[qq]
