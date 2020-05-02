@@ -103,14 +103,12 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
 
         onCommand("/lookup") { msg, search ->
             logger.debug("lookup with $msg")
-            val result = search?.run {
+            val result = (search?.run {
                 dic.keys.filter { toRegex() in it }
-            } ?: dic.keys
-            if (result.isEmpty()) {
-                sendMessage(msg.chat.id, "Empty", replyTo = msg.message_id)
-            } else {
-                sendMessage(msg.chat.id, result.joinToString("\n"), replyTo = msg.message_id)
-            }
+            } ?: dic.keys)
+                .joinToString("\n")
+                .or("Empty")
+            sendMessage(msg.chat.id, result, replyTo = msg.message_id)
         }
 
         onCommand("/forget") { msg, picName ->

@@ -15,6 +15,9 @@ fun getJson(fileName: String): JsonObject =
 fun putJson(fileName: String, obj: JsonObject) =
     File(fileName).writeText(obj.toJsonString(true))
 
+fun String.or(string: String) = if (isNullOrBlank()) string else this
+
+// qq
 suspend inline fun ContactMessage.error(after: () -> Unit) = try {
     after()
 } catch (e: Exception) {
@@ -24,7 +27,6 @@ suspend inline fun ContactMessage.error(after: () -> Unit) = try {
 fun ContactMessage.testSu(bot: UniBot) =
     check(bot.suMgr.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
 
-// qq
 fun Member.displayName() =
     when {
         nameCard.isNotEmpty() -> nameCard
