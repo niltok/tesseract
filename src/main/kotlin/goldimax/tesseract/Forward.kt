@@ -1,7 +1,6 @@
 package goldimax.tesseract
 
 import com.elbekD.bot.types.Message
-import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.GroupMessage
 import net.mamoe.mirai.message.data.*
@@ -27,43 +26,34 @@ val forward: (UniBot) -> Unit = { uniBot ->
             return@lambda
         }
 
-        fun getNick(qq: Member) = when {
-            qq.nameCard.isNotEmpty() -> qq.nameCard
-            qq.nick.isNotEmpty() -> qq.nick
-            else -> qq.id.toString()
-        }
-
         message.forEach { msg ->
             logger.debug("forward qq $msg")
-
-            val msgStringBuilder = StringBuilder()
             when (msg) {
-                is PlainText -> msgStringBuilder.append(msg)
-                is Image ->
-                    uniBot.tg.sendPhoto(tGroup, msg.url(), "${getNick(sender)}: ")
-                is At -> msgStringBuilder.append(msg.display).append(" ")
-                is AtAll -> msgStringBuilder.append(AtAll.display).append(" ")
-                is QuoteReply -> msgStringBuilder.append("[Reply👆")
-                    .append(getNick(subject.members[msg.source.fromId]))
-                    .append(": ")
-                    .append(msg.source.originalMessage.contentToString())
-                    .append("]")
-                is Face -> msgStringBuilder.append(msg.contentToString())
-                is ForwardMessage -> msg.nodeList.joinTo(
-                    msgStringBuilder.append("[Forward]\n"),
-                    "\n"
-                ) { "${it.senderName}: ${it.message.contentToString()}" }
-                is FlashImage -> {
-                    if (forwardFlash) {
-                        uniBot.tg.sendPhoto(tGroup, msg.image.url(), "${getNick(sender)}: [闪照]")
-                    } else msgStringBuilder.append("[闪照]")
+                is FlashImage -> if (forwardFlash) {
+                    uniBot.tg.sendPhoto(tGroup, msg.image.url(), "${sender.displayName()}: [闪照]")
+                } else {
+                    uniBot.tg.sendMessage(tGroup, "[闪照]")
                 }
-                is RichMessage -> {
-                    // TODO: process XML "聊天记录"
-                    msgStringBuilder.append(extractRichMessage(msg.content))
+                is Image -> uniBot.tg.sendPhoto(tGroup, msg.url(), "${sender.displayName()}: ")
+                else -> {
+                    val msgString = when (msg) {
+                        is PlainText -> msg
+                        is At -> msg.display + " "
+                        is AtAll -> AtAll.display + " "
+                        is QuoteReply -> String.format(
+                            "[Reply\uD83D\uDC46%s: %s]",
+                            subject.members[msg.source.fromId].displayName(),
+                            msg.source.originalMessage.contentToString()
+                        )
+                        is Face -> msg.contentToString()
+                        is ForwardMessage -> msg.nodeList.joinToString("\n", "[Forward]\n")
+                        is RichMessage -> // TODO: process XML "聊天记录"
+                            extractRichMessage(msg.content).map(Element::text).toString()
+                        else -> "Unknown message"
+                    }
+                    uniBot.tg.sendMessage(tGroup, String.format("%s: %s", sender.displayName(), msgString))
                 }
             }
-            if (msgStringBuilder.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msgStringBuilder")
         }
     }
 
@@ -75,19 +65,12 @@ val forward: (UniBot) -> Unit = { uniBot ->
         }
         val qGroup = uniBot.qq.groups[qq]
 
-        fun getNick(msg: Message): String {
-            return msg.from?.let { from ->
-                "${from.first_name} ${from.last_name.orEmpty()}: "
-            }.orEmpty()
-        }
-
         logger.debug("forward tg $msg")
-        val nick = getNick(msg).toMessage()
+        val nick = msg.displayName().toMessage()
         msg.text?.let { text ->
-            val cap = msg.reply_to_message?.let { rMsg ->
-                val rNick = getNick(rMsg)
-                "[Reply👆${rNick}]".toMessage()
-            } ?: "".toMessage()
+            val cap = msg.reply_to_message?.let {
+                "[Reply👆${it.displayName()}]"
+            }.orEmpty().toMessage()
             qGroup.sendMessage(cap.plus(nick + text))
         }
 
