@@ -54,7 +54,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
     fun handleSearch(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("look up").trim().toRegex()
-            quoteReply(dic.keys.filter { picName in it }.joinToString(separator = "\n"))
+            quoteReply(dic.keys.filter { picName in it }.joinToString(separator = "\n").or("Empty."))
         }
     }
 
@@ -91,29 +91,29 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
     with(uniBot.tg) {
         onCommand("/say") { msg, picName ->
             logger.debug("say $picName with $msg")
-            try {
+            error(msg) {
                 check(!picName.isNullOrBlank()) { "Pardon?" }
                 val uuid = dic[picName]
                 checkNotNull(uuid) { "Cannot find picture called $picName." }
                 sendPhoto(msg.chat.id, File("pic/$uuid"))
-            } catch (e: IllegalStateException) {
-                sendMessage(msg.chat.id, e.localizedMessage, replyTo = msg.message_id)
             }
         }
 
         onCommand("/lookup") { msg, search ->
             logger.debug("lookup with $msg")
-            val result = (search?.run {
-                dic.keys.filter { toRegex() in it }
-            } ?: dic.keys)
-                .joinToString("\n")
-                .or("Empty")
-            sendMessage(msg.chat.id, result, replyTo = msg.message_id)
+            error(msg) {
+                val result = (search?.run {
+                    dic.keys.filter { toRegex() in it }
+                } ?: dic.keys)
+                    .joinToString("\n")
+                    .or("Empty.")
+                sendMessage(msg.chat.id, result, replyTo = msg.message_id)
+            }
         }
 
         onCommand("/forget") { msg, picName ->
             logger.debug("forget $picName with $msg")
-            try {
+            error(msg) {
                 check(!picName.isNullOrBlank()) { "Pardon?" }
                 val uuid = dic[picName]
                 checkNotNull(uuid) { "Cannot find picture called $picName." }
@@ -121,8 +121,6 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
                 dic.remove(picName)
                 save()
                 sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)
-            } catch (e: IllegalStateException) {
-                sendMessage(msg.chat.id, e.localizedMessage, replyTo = msg.message_id)
             }
         }
     }

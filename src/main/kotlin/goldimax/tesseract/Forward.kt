@@ -20,7 +20,6 @@ object Forward {
     private val logger: Logger = LogManager.getLogger(this.javaClass)
     val forward: (UniBot) -> Unit = { uniBot ->
         val handleQQ: suspend GroupMessage.(String) -> Unit = lambda@{
-            if (drive) return@lambda
             val tGroup = uniBot.connections.findTGByQQ(subject.id)
             if (tGroup == null) {
                 logger.info("cannot find connect by qq ${subject.id}")
@@ -61,6 +60,7 @@ object Forward {
         }
 
         val handleTg: suspend (Message) -> Unit = lambda@{ msg ->
+            if (drive) return@lambda
             val qq = uniBot.connections.findQQByTG(msg.chat.id)
             if (qq == null) {
                 logger.info("cannot find connect by tg ${msg.chat.id}")
@@ -119,6 +119,10 @@ object Forward {
 
             startsWith("QQIMG", true) {
                 quoteReply(Image(it.trim()))
+            }
+
+            startsWith("FACE", true) {
+                quoteReply(Face(it.trim().toInt()))
             }
         }
 

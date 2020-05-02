@@ -2,6 +2,7 @@ package goldimax.tesseract
 
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Parser
+import com.elbekD.bot.Bot
 import com.elbekD.bot.http.await
 import com.elbekD.bot.types.Message
 import net.mamoe.mirai.contact.Member
@@ -44,3 +45,12 @@ fun Message.displayName() =
     from?.run {
         "$first_name ${last_name.orEmpty()}: "
     }.orEmpty()
+
+inline fun Bot.error(id: Long, from: Int?, after: () -> Unit) = try {
+    after()
+} catch (e: Exception) {
+    sendMessage(id, e.localizedMessage, replyTo = from)
+}
+
+inline fun Bot.error(msg: Message, after: () -> Unit) =
+    error(msg.chat.id, msg.message_id) { after() }
