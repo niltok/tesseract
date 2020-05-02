@@ -6,6 +6,7 @@ import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.ContactMessage
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.PlainText
+import org.apache.log4j.LogManager.getLogger
 import java.io.File
 import java.util.*
 import kotlin.collections.component1
@@ -27,6 +28,8 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
     val dic = json.array<JsonObject>("ids")!!.map { x ->
         x.string("name")!! to x.string("uuid")!!
     }.toMap().toMutableMap()
+
+    val logger = getLogger("Picture")
 
     fun save() {
         json["ids"] = JsonArray(dic.map { (a, b) ->
@@ -85,9 +88,9 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         startsWith("plz forget", onEvent = handleRemove())
     }
 
-    uniBot.tg.onCommand("/say") { msg, picName ->
-        logger.debug("say $picName with $msg")
-        with(uniBot.tg) {
+    with(uniBot.tg) {
+        onCommand("/say") { msg, picName ->
+            logger.debug("say $picName with $msg")
             try {
                 check(!picName.isNullOrBlank()) { "Pardon?" }
                 val uuid = dic[picName]

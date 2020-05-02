@@ -10,8 +10,7 @@ fun main() = runBlocking<Unit> {
 
     bot.subscribeAll(
         listOf(
-            manager,
-            forward,
+            Forward.invoke,
             { uniBot: UniBot -> picture(uniBot, "pic") },
             ::qqOther,
             ::tgOther
