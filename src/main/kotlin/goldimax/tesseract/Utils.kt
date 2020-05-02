@@ -24,10 +24,6 @@ suspend inline fun ContactMessage.error(after: () -> Unit) = try {
 fun ContactMessage.testSu(bot: UniBot) =
     check(bot.suMgr.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
 
-suspend fun UniBot.tgFileUrl(fileID: String) =
-    "https://api.telegram.org/file/bot${tgToken}/${
-    tg.getFile(fileID).await().file_path}"
-
 // qq
 fun Member.displayName() =
     when {
@@ -35,6 +31,11 @@ fun Member.displayName() =
         nick.isNotEmpty() -> nick
         else -> id.toString()
     }
+
+
+suspend fun UniBot.tgFileUrl(fileID: String) =
+    "https://api.telegram.org/file/bot${tgToken}/${
+    tg.getFile(fileID).await().file_path}"
 
 // tg
 fun Message.displayName() =

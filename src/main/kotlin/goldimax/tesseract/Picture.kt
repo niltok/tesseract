@@ -87,9 +87,15 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
 
     uniBot.tg.onCommand("/say") { msg, picName ->
         logger.debug("say $picName with $msg")
-        check(picName == null || picName.isNotEmpty()) { "Pardon?" }
-        val uuid = dic[picName]
-        checkNotNull(uuid) { "Cannot find picture called $picName." }
-        uniBot.tg.sendPhoto(msg.chat.id, File("pic/$uuid"))
+        with(uniBot.tg) {
+            try {
+                check(!picName.isNullOrBlank()) { "Pardon?" }
+                val uuid = dic[picName]
+                checkNotNull(uuid) { "Cannot find picture called $picName." }
+                sendPhoto(msg.chat.id, File("pic/$uuid"))
+            } catch (e: IllegalStateException) {
+                sendMessage(msg.chat.id, e.localizedMessage)
+            }
+        }
     }
 }
