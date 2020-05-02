@@ -36,8 +36,8 @@ val forward: (UniBot) -> Unit = { uniBot ->
                 }
                 is Image -> uniBot.tg.sendPhoto(tGroup, msg.url(), "${sender.displayName()}: ")
                 else -> {
-                    val msgString = when (msg) {
-                        is PlainText -> msg
+                    val msgString: String = when (msg) {
+                        is PlainText -> msg.stringValue
                         is At -> msg.display + " "
                         is AtAll -> AtAll.display + " "
                         is QuoteReply -> String.format(
