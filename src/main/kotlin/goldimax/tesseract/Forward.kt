@@ -46,12 +46,14 @@ val forward: (UniBot) -> Unit = { uniBot ->
                             msg.source.originalMessage.contentToString()
                         )
                         is Face -> msg.contentToString()
-                        is ForwardMessage -> msg.nodeList.joinToString("\n", "[Forward]\n")
+                        is ForwardMessage -> "[Forward]\n" + msg.nodeList.joinToString("\n")
                         is RichMessage -> // TODO: process XML "聊天记录"
-                            extractRichMessage(msg.content).map(Element::text).toString()
-                        else -> "Unknown message"
+                            extractRichMessage(msg.content).joinToString("\n", transform = Element::text)
+                        else -> msg.contentToString()
                     }
-                    uniBot.tg.sendMessage(tGroup, String.format("%s: %s", sender.displayName(), msgString))
+                    if (msgString.isNotBlank()) {
+                        uniBot.tg.sendMessage(tGroup, String.format("%s: %s", sender.displayName(), msgString))
+                    }
                 }
             }
         }
