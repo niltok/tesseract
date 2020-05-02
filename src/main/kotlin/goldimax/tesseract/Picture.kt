@@ -6,47 +6,39 @@ import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.ContactMessage
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.PlainText
+import org.apache.log4j.LogManager.getLogger
 import java.io.File
 import java.util.*
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.set
 
-class Picture(
-    private val uniBot: UniBot,
-    private val name: String
-) {
-    init {
-        File("$name.json").run {
-            if (!exists()) {
-                createNewFile()
-                //language=JSON
-                writeText("""{"ids": []}""")
-            }
+val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
+    File("$confName.json").run {
+        if (!exists()) {
+            createNewFile()
+            //language=JSON
+            writeText("""{"ids": []}""")
         }
-        File(name).run { if (!exists()) mkdir() }
     }
+    File(confName).run { if (!exists()) mkdir() }
 
-    private val json = getJson("$name.json")
+    val json = getJson("$confName.json")
 
-    private val dic = json.array<JsonObject>("ids")!!.map { x ->
+    val dic = json.array<JsonObject>("ids")!!.map { x ->
         x.string("name")!! to x.string("uuid")!!
     }.toMap().toMutableMap()
+
+    val logger = getLogger("Picture")
 
     fun save() {
         json["ids"] = JsonArray(dic.map { (a, b) ->
             JsonObject(mapOf("name" to a, "uuid" to b))
         })
-        putJson("$name.json", json)
+        putJson("$confName.json", json)
     }
 
-    init {
-        uniBot.qq.subscribeMessages {
-            startsWith("remember", onEvent = handleAdd())
-            startsWith("say", onEvent = handleReq())
-            startsWith("look up", onEvent = handleSearch())
-            startsWith("plz forget", onEvent = handleRemove())
-        }
-    }
-
-    private fun handleRemove(): suspend ContactMessage.(String) -> Unit = {
+    fun handleRemove(): suspend ContactMessage.(String) -> Unit = {
         error {
             testSu(uniBot)
 
@@ -59,14 +51,14 @@ class Picture(
         }
     }
 
-    private fun handleSearch(): suspend ContactMessage.(String) -> Unit = {
+    fun handleSearch(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("look up").trim().toRegex()
             quoteReply(dic.keys.filter { picName in it }.joinToString(separator = "\n"))
         }
     }
 
-    private fun handleReq(): suspend ContactMessage.(String) -> Unit = {
+    fun handleReq(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
@@ -76,7 +68,7 @@ class Picture(
         }
     }
 
-    private fun handleAdd(): suspend ContactMessage.(String) -> Unit = {
+    fun handleAdd(): suspend ContactMessage.(String) -> Unit = {
         error {
             val picName = message[PlainText].toString().removePrefix("remember").trim()
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
@@ -86,6 +78,52 @@ class Picture(
             dic[picName] = picPath.toString()
             save()
             quoteReply("Done.")
+        }
+    }
+
+    uniBot.qq.subscribeMessages {
+        startsWith("remember", onEvent = handleAdd())
+        startsWith("say", onEvent = handleReq())
+        startsWith("look up", onEvent = handleSearch())
+        startsWith("plz forget", onEvent = handleRemove())
+    }
+
+    with(uniBot.tg) {
+        onCommand("/say") { msg, picName ->
+            logger.debug("say $picName with $msg")
+            try {
+                check(!picName.isNullOrBlank()) { "Pardon?" }
+                val uuid = dic[picName]
+                checkNotNull(uuid) { "Cannot find picture called $picName." }
+                sendPhoto(msg.chat.id, File("pic/$uuid"))
+            } catch (e: IllegalStateException) {
+                sendMessage(msg.chat.id, e.localizedMessage, replyTo = msg.message_id)
+            }
+        }
+
+        onCommand("/lookup") { msg, search ->
+            logger.debug("lookup with $msg")
+            val result = (search?.run {
+                dic.keys.filter { toRegex() in it }
+            } ?: dic.keys)
+                .joinToString("\n")
+                .or("Empty")
+            sendMessage(msg.chat.id, result, replyTo = msg.message_id)
+        }
+
+        onCommand("/forget") { msg, picName ->
+            logger.debug("forget $picName with $msg")
+            try {
+                check(!picName.isNullOrBlank()) { "Pardon?" }
+                val uuid = dic[picName]
+                checkNotNull(uuid) { "Cannot find picture called $picName." }
+
+                dic.remove(picName)
+                save()
+                sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)
+            } catch (e: IllegalStateException) {
+                sendMessage(msg.chat.id, e.localizedMessage, replyTo = msg.message_id)
+            }
         }
     }
 }

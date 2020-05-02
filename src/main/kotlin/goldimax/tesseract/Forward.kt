@@ -1,132 +1,110 @@
 package goldimax.tesseract
 
-import com.beust.klaxon.JsonObject
-import com.elbekD.bot.http.await
 import com.elbekD.bot.types.Message
-import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.GroupMessage
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.uploadImage
 import org.apache.log4j.LogManager
+import org.apache.log4j.Logger
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Parser
-import java.beans.XMLDecoder
 import java.net.URL
 import javax.imageio.ImageIO
 
-class Forward(private val uniBot: UniBot) {
+fun extractRichMessage(content: String): List<Element> =
+    Jsoup.parse(content, "", Parser.xmlParser()).select("title").toList()
 
-    private var drive = false
-    private var forwardFlash = true
+object Forward {
+    private val logger: Logger = LogManager.getLogger(this.javaClass)
+    val forward: (UniBot) -> Unit = { uniBot ->
+        val handleQQ: suspend GroupMessage.(String) -> Unit = lambda@{
+            if (drive) return@lambda
+            val tGroup = uniBot.connections.findTGByQQ(subject.id)
+            if (tGroup == null) {
+                logger.info("cannot find connect by qq ${subject.id}")
+                return@lambda
+            }
 
-    private val logger = LogManager.getLogger(this.javaClass)
-
-    data class Connection(val qq: Long, val tg: Long)
-
-    private val connect = uniBot.conf.array<JsonObject>("connect")!!
-        .map { Connection(it.long("qq")!!, it.long("tg")!!) }
-
-    private fun handleQQ(): suspend GroupMessage.(String) -> Unit = lambda@{
-        if (drive) return@lambda
-
-        val connect = connect.find { x -> x.qq == subject.id } ?: return@lambda
-
-        fun getNick(qq: Member) = when {
-            qq.nameCard.isNotEmpty() -> qq.nameCard
-            qq.nick.isNotEmpty() -> qq.nick
-            else -> qq.id.toString()
-        }
-
-        val tGroup = connect.tg
-        message.forEach { msg ->
-            logger.debug("forward qq $msg")
-
-            val msgStringBuilder = StringBuilder()
-            when (msg) {
-                is PlainText -> msgStringBuilder.append(msg)
-                is Image ->
-                    uniBot.tg.sendPhoto(tGroup, msg.url(), "${getNick(sender)}: ")
-                is At -> msgStringBuilder.append(msg.display).append(" ")
-                is AtAll -> msgStringBuilder.append(AtAll.display).append(" ")
-                is QuoteReply -> msgStringBuilder.append("[Reply👆")
-                    .append(getNick(subject.members[msg.source.fromId]))
-                    .append(": ")
-                    .append(msg.source.originalMessage.contentToString())
-                    .append("]")
-                is Face -> msgStringBuilder.append(msg.contentToString())
-                is ForwardMessage -> msg.nodeList.joinTo(
-                    msgStringBuilder.append("[Forward]\n"),
-                    "\n"
-                ) { "${it.senderName}: ${it.message.contentToString()}" }
-                is FlashImage -> {
-                    if (forwardFlash) {
-                        uniBot.tg.sendPhoto(tGroup, msg.image.url(), "${getNick(sender)}: [闪照]")
-                    } else msgStringBuilder.append("[闪照]")
-                }
-                is RichMessage -> {
-                    // TODO: process XML "聊天记录"
-
-                    msgStringBuilder.append("{").append(msg.content).append("}")
+            message.forEach { msg ->
+                logger.debug("forward qq $msg")
+                when (msg) {
+                    is FlashImage -> if (forwardFlash) {
+                        uniBot.tg.sendPhoto(tGroup, msg.image.url(), "${sender.displayName()}: [闪照]")
+                    } else {
+                        uniBot.tg.sendMessage(tGroup, "[闪照]")
+                    }
+                    is Image -> uniBot.tg.sendPhoto(tGroup, msg.url(), "${sender.displayName()}: ")
+                    else -> {
+                        val msgString: String = when (msg) {
+                            is PlainText -> msg.stringValue
+                            is At -> msg.display + " "
+                            is AtAll -> AtAll.display + " "
+                            is QuoteReply -> String.format(
+                                "[Reply\uD83D\uDC46%s: %s]",
+                                subject.members[msg.source.fromId].displayName(),
+                                msg.source.originalMessage.contentToString()
+                            )
+                            is Face -> msg.contentToString()
+                            is ForwardMessage -> "[Forward]\n" + msg.nodeList.joinToString("\n")
+                            is RichMessage -> // TODO: process XML "聊天记录"
+                                extractRichMessage(msg.content).joinToString("\n", transform = Element::text)
+                            else -> msg.contentToString()
+                        }
+                        if (msgString.isNotBlank()) {
+                            uniBot.tg.sendMessage(tGroup, String.format("%s: %s", sender.displayName(), msgString))
+                        }
+                    }
                 }
             }
-            if (msgStringBuilder.isNotEmpty()) uniBot.tg.sendMessage(tGroup, "${getNick(sender)}: $msgStringBuilder")
-        }
-    }
-
-    companion object {
-        fun extractRichMessage(content: String): List<Element> =
-            Jsoup.parse(content, "", Parser.xmlParser()).select("title").toList()
-    }
-
-    private fun handleTg(): suspend (Message) -> Unit = lambda@{ msg ->
-
-        val connect = connect.find { x -> x.tg == msg.chat.id } ?: return@lambda
-        fun getNick(msg: Message): String {
-            return msg.from?.let { from ->
-                "${from.first_name} ${from.last_name.orEmpty()}: "
-            }.orEmpty()
         }
 
-        val qGroup = uniBot.qq.groups[connect.qq]
+        val handleTg: suspend (Message) -> Unit = lambda@{ msg ->
+            val qq = uniBot.connections.findQQByTG(msg.chat.id)
+            if (qq == null) {
+                logger.info("cannot find connect by tg ${msg.chat.id}")
+                return@lambda
+            }
+            val qGroup = uniBot.qq.groups[qq]
 
-        logger.debug("forward tg $msg")
-        val nick = getNick(msg).toMessage()
-        msg.text?.let { text ->
-            val cap = msg.reply_to_message?.let { rMsg ->
-                val rNick = getNick(rMsg)
-                "[Reply👆${rNick}]".toMessage()
-            } ?: "".toMessage()
-            qGroup.sendMessage(cap.plus(nick + text))
-        }
+            logger.debug("forward tg $msg")
+            val nick = msg.displayName().toMessage()
+            msg.text?.let { text ->
+                val cap = msg.reply_to_message?.let {
+                    "[Reply👆${it.displayName()}]"
+                }.orEmpty().toMessage()
+                qGroup.sendMessage(cap.plus(nick + text))
+            }
 
-        suspend fun filePath(fileID: String) =
-            "https://api.telegram.org/file/bot${uniBot.tgToken}/${
-            uniBot.tg.getFile(fileID).await().file_path}"
-
-        // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
-        msg.photo?.maxBy { it.file_size }?.let {
-            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
-            qGroup.sendMessage(nick + qGroup.uploadImage(image))
-        }
-        msg.sticker?.let {
-            val filepath = filePath(it.file_id)
-            if (filepath.endsWith(".tgs")) {
-                // TODO: Support .tgs format animated sticker
-                qGroup.sendMessage(nick + " Unsupported .tgs format animated sticker")
-            } else {
-                val image = ImageIO.read(URL(filepath).openStream())
+            // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
+            msg.photo?.maxBy { it.file_size }?.let {
+                val image = ImageIO.read(URL(uniBot.tgFileUrl(it.file_id)).openStream())
+                qGroup.sendMessage(nick + qGroup.uploadImage(image))
+            }
+            msg.sticker?.let {
+                val filepath = uniBot.tgFileUrl(it.file_id)
+                if (filepath.endsWith(".tgs")) {
+                    // TODO: Support .tgs format animated sticker
+                    qGroup.sendMessage(nick + " Unsupported .tgs format animated sticker")
+                } else {
+                    val image = ImageIO.read(URL(filepath).openStream())
+                    qGroup.sendMessage(nick + qGroup.uploadImage(image))
+                }
+            }
+            msg.animation?.let {
+                val image = ImageIO.read(URL(uniBot.tgFileUrl(it.file_id)).openStream())
                 qGroup.sendMessage(nick + qGroup.uploadImage(image))
             }
         }
-        msg.animation?.let {
-            val image = ImageIO.read(URL(filePath(it.file_id)).openStream())
-            qGroup.sendMessage(nick + qGroup.uploadImage(image))
-        }
+
+        uniBot.tg.onMessage(handleTg)
+        uniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 
-    init {
+    var drive = false
+    var forwardFlash = true
+    val manager = { uniBot: UniBot ->
         uniBot.qq.subscribeGroupMessages {
             case("plz do not forward flash image") {
                 testSu(uniBot)
@@ -142,18 +120,22 @@ class Forward(private val uniBot: UniBot) {
             startsWith("QQIMG", true) {
                 quoteReply(Image(it.trim()))
             }
-
-            contains("", onEvent = handleQQ())
         }
 
-        uniBot.tg.onMessage(handleTg())
-        uniBot.tg.onCommand("/drive") { msg, _ ->
-            drive = true
-            uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+        uniBot.tg.run {
+            onCommand("/drive") { msg, _ ->
+                drive = true
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+            }
+            onCommand("/park") { msg, _ ->
+                drive = false
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+            }
         }
-        uniBot.tg.onCommand("/park") { msg, _ ->
-            drive = false
-            uniBot.tg.sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-        }
+    }
+
+    val invoke: SubscribeType = { uniBot ->
+        manager(uniBot)
+        forward(uniBot)
     }
 }

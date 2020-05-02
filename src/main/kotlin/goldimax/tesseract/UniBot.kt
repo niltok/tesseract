@@ -1,16 +1,18 @@
 package goldimax.tesseract
 
 import com.beust.klaxon.JsonArray
-import com.beust.klaxon.JsonObject
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import net.mamoe.mirai.*
+import net.mamoe.mirai.alsoLogin
+import net.mamoe.mirai.join
 import com.elbekD.bot.Bot as tgBot
 import net.mamoe.mirai.Bot as qqBot
 
 inline class QQUser(val id: Long)
 inline class TGUser(val id: Long)
+
+typealias SubscribeType = (UniBot) -> Unit
 
 class SUManager(private val uniBot: UniBot) {
     val qqAdmin = uniBot.conf.array<Long>("qq_admin")!!.toMutableList()
@@ -38,12 +40,24 @@ class UniBot(private val fileName: String) {
 
     val qq = qqBot(qqID, qqPwd)
     val tg = tgBot.createPolling("", tgToken)
+    val connections = Connections(conf.array("connect")!!)
 
     init {
         GlobalScope.launch { tg.start() }
         runBlocking { qq.alsoLogin() }
     }
 
+    private val subscribes: MutableList<SubscribeType> = mutableListOf()
+
+    fun subscribeAll(subscribes: Collection<SubscribeType>): UniBot {
+        this.subscribes.addAll(subscribes)
+        return this
+    }
+
     fun save() = putJson(fileName, conf)
-    suspend fun join() = qq.join()
+
+    suspend fun start() {
+        subscribes.forEach { it(this) }
+        qq.join()
+    }
 }

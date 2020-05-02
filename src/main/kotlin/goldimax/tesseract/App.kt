@@ -8,11 +8,13 @@ fun main() = runBlocking<Unit> {
     BasicConfigurator.configure()
     val bot = UniBot("conf.json")
 
-    val picture = Picture(bot, "pic")
-    val forward = Forward(bot)
-    qqOther(bot)
-    tgOther(bot)
-
-    bot.join()
+    bot.subscribeAll(
+        listOf(
+            Forward.invoke,
+            { uniBot: UniBot -> picture(uniBot, "pic") },
+            ::qqOther,
+            ::tgOther
+        )
+    ).start()
 }
 
