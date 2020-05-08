@@ -13,6 +13,7 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.set
 
+@ExperimentalStdlibApi
 val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
     File("$confName.json").run {
         if (!exists()) {
@@ -62,9 +63,10 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         error {
             val picName = message[PlainText].toString().removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
-            val maybe = dic[picName]
+            val reg = picName.toRegex()
+            val maybe = dic.filter { it.key.contains(reg) }.values.randomOrNull()
             checkNotNull(maybe) { "Cannot find picture called $picName." }
-            reply(uploadImage(File("pic/$maybe")))
+            reply(uploadImage(File("$confName/$maybe")))
         }
     }
 
@@ -74,10 +76,18 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
             check(!dic.containsKey(picName)) { "There is already a picture called $picName." }
             val picPath = UUID.randomUUID()
-            message[Image].downloadTo(File("pic/$picPath"))
+            message[Image].downloadTo(File("$confName/$picPath"))
             dic[picName] = picPath.toString()
             save()
             quoteReply("Done.")
+        }
+    }
+
+    fun handleImReq(): suspend ContactMessage.(String) -> Unit = {
+        val picName = message[PlainText].toString().trim()
+        val maybe = dic[picName]
+        if (maybe != null) {
+            reply(uploadImage(File("$confName/$maybe")))
         }
     }
 
@@ -86,6 +96,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         startsWith("say", onEvent = handleReq())
         startsWith("look up", onEvent = handleSearch())
         startsWith("plz forget", onEvent = handleRemove())
+        startsWith("", onEvent = handleImReq())
     }
 
     with(uniBot.tg) {
@@ -95,7 +106,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
                 check(!picName.isNullOrBlank()) { "Pardon?" }
                 val uuid = dic[picName]
                 checkNotNull(uuid) { "Cannot find picture called $picName." }
-                sendPhoto(msg.chat.id, File("pic/$uuid"))
+                sendPhoto(msg.chat.id, File("$confName/$uuid"))
             }
         }
 
