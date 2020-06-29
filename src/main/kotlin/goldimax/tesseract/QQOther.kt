@@ -7,6 +7,7 @@ import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.*
 import java.net.URL
 
+@ExperimentalStdlibApi
 fun qqOther(bot: UniBot) {
     val qq = bot.qq
     qq.subscribeMessages {
@@ -23,7 +24,7 @@ fun qqOther(bot: UniBot) {
                 testSu(bot)
 
                 val id = message[PlainText].toString().removePrefix("plz add su").trim().let {
-                    if (it.isEmpty()) message[At].target
+                    if (it.isEmpty()) message[At]!!.target
                     else it.toLong()
                 }
                 bot.suMgr.qqAdmin.add(id)
@@ -33,7 +34,7 @@ fun qqOther(bot: UniBot) {
         }
         startsWith("is su") {
             error {
-                if (bot.suMgr.isSuperuser(QQUser(message[At].target))) quoteReply("Yes.")
+                if (bot.suMgr.isSuperuser(QQUser(message[At]!!.target))) quoteReply("Yes.")
                 else quoteReply("No.")
             }
         }

@@ -4,6 +4,7 @@ import com.jcabi.manifests.Manifests
 import java.text.SimpleDateFormat
 import java.util.*
 
+@ExperimentalStdlibApi
 fun tgOther(bot: UniBot) {
     with(bot.tg) {
         onCommand("/rainbow") { msg, _ ->

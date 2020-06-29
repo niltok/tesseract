@@ -14,7 +14,8 @@ fun main() = runBlocking<Unit> {
             Forward.invoke,
             { uniBot: UniBot -> picture(uniBot, "pic") },
             ::qqOther,
-            ::tgOther
+            ::tgOther,
+            { counter(it, "count") }
         )
     ).start()
 }
