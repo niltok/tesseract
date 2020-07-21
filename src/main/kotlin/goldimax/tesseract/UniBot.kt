@@ -1,5 +1,6 @@
 package goldimax.tesseract
 
+import com.elbekD.bot.types.Message
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -24,10 +25,12 @@ class UniBot(private val fileName: String) {
 
     val qq = qqBot(qqID, qqPwd)
     val tg = tgBot.createPolling("", tgToken)
+    val tgListener = mutableListOf<suspend (Message) -> Unit>()
     val connections = Connections(conf.array("connect")!!)
     val history = History()
 
     init {
+        tg.onMessage { msg -> tgListener.forEach { it(msg) } }
         GlobalScope.launch { tg.start() }
         runBlocking { qq.alsoLogin() }
     }

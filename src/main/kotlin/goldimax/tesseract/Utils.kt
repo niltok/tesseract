@@ -59,7 +59,7 @@ suspend fun UniBot.tgFileUrl(fileID: String) =
 // tg
 fun Message.displayName() =
     from?.run {
-        "$first_name ${last_name.orEmpty()}: "
+        "$first_name ${last_name.orEmpty()}"
     }.orEmpty()
 
 inline fun Bot.error(id: Long, from: Int?, after: () -> Unit) = try {

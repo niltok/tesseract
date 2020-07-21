@@ -76,7 +76,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
             val reg = picName.toRegex()
             val maybe = dic[source.group.id]?.filter { it.key.contains(reg) }?.values?.randomOrNull()
             checkNotNull(maybe) { "Cannot find picture called $picName." }
-            val qid = reply(uploadImage(File("$confName/$maybe"))).source
+            val qid = sendImage(File("$confName/$maybe")).source
             uniBot.connections.findTGByQQ(subject.id)?.let {
                 uniBot.tg.sendPhoto(it, File("$confName/$picName"))
                     .whenComplete { t, _ -> uniBot.history.insert(qid, t.message_id) }
@@ -106,7 +106,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         val picName = message[PlainText].toString().trim()
         val maybe = dic[source.group.id]?.get(picName)
         if (maybe != null) {
-            val qid = reply(uploadImage(File("$confName/$maybe"))).source
+            val qid = sendImage(File("$confName/$maybe")).source
             uniBot.connections.findTGByQQ(subject.id)?.let {
                 uniBot.tg.sendPhoto(it, File("$confName/$maybe"))
                     .whenComplete { t, _ -> uniBot.history.insert(qid, t.message_id) }
@@ -142,10 +142,11 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
             }
         }
 
-        onMessage {
-            if (it.text.isNullOrBlank()) return@onMessage
+        uniBot.tgListener.add {
+            println("onMessage ${it.text}")
+            if (it.text.isNullOrBlank()) return@add
             val maybe = dic[uniBot.connections.findQQByTG(it.chat.id)]?.get(it.text!!.trim())
-            if (maybe.isNullOrBlank()) return@onMessage
+            if (maybe.isNullOrBlank()) return@add
             sendPhoto(it.chat.id, File("$confName/$maybe")).whenComplete { t, _ ->
                 GlobalScope.launch {
                     uniBot.connections.findQQByTG(it.chat.id)?.let {

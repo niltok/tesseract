@@ -63,29 +63,30 @@ object Forward {
 
             logger.info(msgText)
             logger.info(imgs)
+            logger.info(reply)
 
             val caption = String.format("%s: %s", sender.displayName(), msgText)
             when (imgs.size) {
                 0 -> uniBot.tg.sendMessage(tGroup, caption, replyTo = reply)
-                    .whenComplete { t, _ -> uniBot.history.insert(source, t.message_id) }
+                    .whenComplete { t, u -> logger.info(u); uniBot.history.insert(source, t.message_id) }
                 1 -> uniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply)
-                    .whenComplete { t, _ -> uniBot.history.insert(source, t.message_id)}
+                    .whenComplete { t, _ -> uniBot.history.insert(source, t.message_id) }
                 else -> uniBot.tg.sendMediaGroup(tGroup, imgs.map {
                         uniBot.tg.mediaPhoto(it, caption =  caption) }, replyTo = reply)
-                    .whenComplete{ t, _ -> uniBot.history.insert(source, t.first().message_id)}
+                    .whenComplete{ t, _ -> uniBot.history.insert(source, t.first().message_id) }
             }
         }
 
         val handleTg: suspend (TGMsg) -> Unit = lambda@{ msg ->
+            logger.debug("receive tg ${msg.text}")
             if (drive) return@lambda
             val qq = uniBot.connections.findQQByTG(msg.chat.id)
+            logger.info("transfering to ${msg.chat.id}")
             if (qq == null) {
-                logger.info("cannot find connect by tg ${msg.chat.id}")
                 return@lambda
             }
             val qGroup = uniBot.qq.groups[qq]
 
-            logger.debug("forward tg $msg")
 
             val msgs = mutableListOf<Message>((msg.displayName() + ": ").toMessage())
 
@@ -106,12 +107,12 @@ object Forward {
             }
 
             msg.sticker?.let {
-                val filepath = uniBot.tgFileUrl(it.file_id)
-                if (filepath.endsWith(".tgs")) {
+                val filePath = uniBot.tgFileUrl(it.file_id)
+                if (filePath.endsWith(".tgs")) {
                     // TODO: Support .tgs format animated sticker
                     msgs.add(" Unsupported .tgs format animated sticker".toMessage())
                 } else {
-                    val image = ImageIO.read(URL(filepath).openStream())
+                    val image = ImageIO.read(URL(filePath).openStream())
                     msgs.add(qGroup.uploadImage(image))
                 }
             }
@@ -121,9 +122,10 @@ object Forward {
                 msgs.add(qGroup.uploadImage(image))
             }
 
+            val qid = qGroup.sendMessage(msgs.asMessageChain()).source
+            uniBot.history.insert(qid, msg.message_id)
 
-            logger.info(msgs)
-            uniBot.history.insert(qGroup.sendMessage(msgs.asMessageChain()).source, msg.message_id)
+            Unit
         }
 
         uniBot.tg.onMessage(handleTg)
@@ -152,6 +154,7 @@ object Forward {
                 drive = false
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
+            onCommand("/MOD") { msg, _ -> sendMessage(msg.chat.id, drive.toString())}
         }
     }
 

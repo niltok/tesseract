@@ -16,5 +16,6 @@ class SUManager(private val uniBot: UniBot) {
     fun save() {
         uniBot.conf["qq_admin"] = JsonArray(qqAdmin)
         uniBot.conf["tg_admin"] = JsonArray(tgAdmin)
+        uniBot.save()
     }
 }
