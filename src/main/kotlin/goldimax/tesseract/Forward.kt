@@ -65,14 +65,14 @@ object Forward {
             logger.info(imgs)
             logger.info(reply)
 
-            val caption = String.format("%s: %s", sender.displayName(), msgText)
+            val caption = String.format("<b>%s</b>: %s", sender.displayName(), msgText)
             when (imgs.size) {
-                0 -> uniBot.tg.sendMessage(tGroup, caption, replyTo = reply)
+                0 -> uniBot.tg.sendMessage(tGroup, caption, replyTo = reply, parseMode = "html")
                     .whenComplete { t, u -> logger.info(u); uniBot.history.insert(source, t.message_id) }
-                1 -> uniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply)
+                1 -> uniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply, parseMode = "html")
                     .whenComplete { t, _ -> uniBot.history.insert(source, t.message_id) }
                 else -> uniBot.tg.sendMediaGroup(tGroup, imgs.map {
-                        uniBot.tg.mediaPhoto(it, caption =  caption) }, replyTo = reply)
+                        uniBot.tg.mediaPhoto(it, caption =  caption, parseMode = "html") }, replyTo = reply)
                     .whenComplete{ t, _ -> uniBot.history.insert(source, t.first().message_id) }
             }
         }

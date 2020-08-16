@@ -15,7 +15,8 @@ fun main() = runBlocking<Unit> {
             { uniBot: UniBot -> picture(uniBot, "pic") },
             ::qqOther,
             ::tgOther,
-            { counter(it, "count") }
+            { counter(it, "count") },
+            { Repeater.invoke(it, "repeater") }
         )
     ).start()
 }

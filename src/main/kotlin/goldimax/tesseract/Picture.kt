@@ -63,7 +63,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         error {
             val picName = message[PlainText].toString().removePrefix("look up").trim().toRegex()
             dic[source.group.id]?.let { dic ->
-                quoteReply(dic.keys.filter { picName in it }
+                quoteReply(dic.keys.filter { picName in it } .take(20)
                     .joinToString(separator = "\n").or("Empty."))
             }
         }
@@ -163,7 +163,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
                 val result = (dic[uniBot.connections.findQQByTG(msg.chat.id)]
                     ?.let { dic -> (search?.run {
                     dic.keys.filter { toRegex() in it }
-                } ?: dic.keys) } ?: emptyList())
+                } ?: dic.keys) } ?: emptyList()).take(20)
                     .joinToString("\n")
                     .or("Empty.")
                 sendMessage(msg.chat.id, result, replyTo = msg.message_id)
