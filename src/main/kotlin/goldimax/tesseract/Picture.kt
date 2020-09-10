@@ -143,10 +143,10 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         }
 
         uniBot.tgListener.add {
-            println("onMessage ${it.text}")
             if (it.text.isNullOrBlank()) return@add
             val maybe = dic[uniBot.connections.findQQByTG(it.chat.id)]?.get(it.text!!.trim())
             if (maybe.isNullOrBlank()) return@add
+            logger.debug("implicit request ${it.text}")
             sendPhoto(it.chat.id, File("$confName/$maybe")).whenComplete { t, _ ->
                 GlobalScope.launch {
                     uniBot.connections.findQQByTG(it.chat.id)?.let {

@@ -37,6 +37,10 @@ suspend inline fun MessageEvent.error(after: () -> Unit) = try {
 fun MessageEvent.testSu(bot: UniBot) =
     check(bot.suMgr.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
 
+@ExperimentalStdlibApi
+fun testSu(bot: UniBot, msg: Message) =
+    check(bot.suMgr.isSuperuser(TGUser(msg.from!!.id.toLong()))) { "Sorry, you are not superuser." }
+
 fun Member.displayName() =
     when {
         nameCard.isNotEmpty() -> nameCard

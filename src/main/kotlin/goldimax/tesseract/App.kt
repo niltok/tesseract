@@ -16,7 +16,9 @@ fun main() = runBlocking<Unit> {
             ::qqOther,
             ::tgOther,
             { counter(it, "count") },
-            { Repeater.invoke(it, "repeater") }
+            { Repeater.invoke(it, "repeater") },
+            { Markov.subscribe(it, "markov") },
+            { Reminder.subscribe(it, "reminder") }
         )
     ).start()
 }

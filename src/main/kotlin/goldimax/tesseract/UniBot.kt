@@ -1,5 +1,7 @@
 package goldimax.tesseract
 
+import com.beust.klaxon.JsonArray
+import com.beust.klaxon.JsonObject
 import com.elbekD.bot.types.Message
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -42,7 +44,11 @@ class UniBot(private val fileName: String) {
         return this
     }
 
-    fun save() = putJson(fileName, conf)
+    fun save() {
+        conf["connect"] = JsonArray(connections.internal.value.map {
+            JsonObject(mapOf("qq" to it.qq, "tg" to it.tg)) })
+        putJson(fileName, conf)
+    }
 
     suspend fun start() {
         subscribes.forEach { it(this) }

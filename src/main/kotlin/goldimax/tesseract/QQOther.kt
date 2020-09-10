@@ -48,5 +48,6 @@ fun qqOther(bot: UniBot) {
             }
         }
         case("kiss me") quoteReply (Face(Face.qinqin))
+        case("mention all") reply(AtAll)
     }
 }

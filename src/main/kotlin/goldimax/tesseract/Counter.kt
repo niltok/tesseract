@@ -83,7 +83,11 @@ val counter = { uniBot: UniBot, confName: String ->
             error {
                 testSu(uniBot)
 
-                dic[source.group.id]?.remove(it.toRegex())
+                dic[source.group.id]?.run {
+                    filterKeys { reg -> reg.pattern == it } .forEach {
+                        remove(it.key)
+                    }
+                }
                 save()
 
                 quoteReply("Done.")

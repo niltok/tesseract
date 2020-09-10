@@ -10,7 +10,8 @@ data class Connection(
 
 
 class Connections(raw: JsonArray<JsonObject>) {
-    private val internal = lazy { raw.map { Connection(it.long("qq")!!, it.long("tg")!!) } }
+    val internal = lazy { raw.map {
+        Connection(it.long("qq")!!, it.long("tg")!!) } .toMutableList() }
     fun findQQByTG(tg: Long) = internal.value.find { it.tg == tg }?.qq
     fun findTGByQQ(qq: Long) = internal.value.find { it.qq == qq }?.tg
 }

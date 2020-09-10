@@ -24,5 +24,27 @@ fun tgOther(bot: UniBot) {
             """.trimIndent()
             )
         }
+
+        onCommand("/connect") { msg, _ ->
+            error {
+                testSu(bot, msg)
+
+                bot.connections.internal.value.add(Connection(msg.text!!.trim().toLong(), msg.chat.id))
+                bot.save()
+
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+            }
+        }
+
+        onCommand("/add_su") { msg, _ ->
+            error {
+                testSu(bot, msg)
+
+                bot.suMgr.tgAdmin.add(msg.text!!.trim().toLong())
+                bot.suMgr.save()
+
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+            }
+        }
     }
 }

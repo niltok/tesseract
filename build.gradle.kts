@@ -26,7 +26,7 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("com.beust:klaxon:5.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
-    implementation("net.mamoe:mirai-core-qqandroid:1.0.3")
+    implementation("net.mamoe:mirai-core-qqandroid:1.2.2")
     implementation("com.github.elbekD:kt-telegram-bot:1.2.5")
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
     implementation("com.jcabi:jcabi-manifests:0.7.5")

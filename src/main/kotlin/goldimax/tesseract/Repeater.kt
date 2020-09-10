@@ -8,8 +8,8 @@ import kotlin.math.*
 import java.time.Duration
 import java.util.*
 
-const val learningRate = 0.1
-const val limit = 0.5
+const val learningRate = 0.01
+const val limit = 0.8
 
 private interface Layer {
     fun dump(): JsonObject
@@ -89,7 +89,7 @@ private class Matrix(private var matrix: List<List<Double>>): Layer {
             .map { (list, v) -> list.map { it * v } }
             .reduce { acc, v -> (acc zip v).map { (x, y) -> x + y } }
         matrix = (matrix zip a)
-            .map { (list, v) -> list.map { it - learningRate * v } }
+            .map { (list, v) -> list.map { it + learningRate * v } }
         return ans
     }
 }
@@ -103,7 +103,7 @@ private class Addition(private var a: List<Double>): Layer {
     override fun dump() = JsonObject(mapOf("a" to JsonArray(a)))
     override fun run(input: List<Double>) = (a zip input).map { (u, v) -> u + v }
     override fun train(delta: List<Double>, a: List<Double>): List<Double> {
-        this.a = (this.a zip delta).map { (u, v) -> u - learningRate * v }
+        this.a = (this.a zip delta).map { (u, v) -> u + learningRate * v }
         return delta
     }
 }
@@ -125,7 +125,7 @@ object Repeater {
     private val rand = Random()
     private var network: Network = emptyList()
     private var creator = NetworkCreator(listOf(
-        MatrixCreator { Matrix((0 until 30).map { (0 until 100).map {
+        MatrixCreator { Matrix((0 until 100).map { (0 until 30).map {
             rand.nextGaussian() * sqrt(sqrt(2.0 / 65.0)) } }) },
         AdditionCreator { Addition((0 until 100).map { 0.0 }) },
         ReLUCreator(),
@@ -137,8 +137,8 @@ object Repeater {
             rand.nextGaussian() * sqrt(sqrt(2.0 / 100.0)) } }) },
         AdditionCreator { Addition((0 until 100).map { 0.0 }) },
         ReLUCreator(),
-        MatrixCreator { Matrix((0 until 100).map { listOf(
-            rand.nextGaussian() * sqrt(sqrt(2.0 / 50.0))) }) },
+        MatrixCreator { Matrix((0 until 1).map { (0 until 100).map {
+            rand.nextGaussian() * sqrt(sqrt(2.0 / 50.0))} }) },
         SigmoidCreator(),
         BlankCreator()
     ))
@@ -147,8 +147,8 @@ object Repeater {
     private val counter = mutableMapOf<String, Int>()
     private var repeat = false
     private fun mkList(s: String): List<Double> {
-        val list = s.map { it.toDouble() * 0.01 } .toMutableList()
-        while (list.size < 20) list.add(0.0)
+        val list = s.map { log(it.toDouble() / s.length, 10.0) } .toMutableList()
+        while (list.size < 30) list.add(0.0)
         return list.toList()
     }
 
@@ -161,31 +161,38 @@ object Repeater {
                     .toJsonString(true))
             }
         } else {
-            network = creator.create(getJson("$conf.json").array("base")!!)
+            network = creator.create(
+                getJson("$conf.json").array("base")!!)
         }
 
         uniBot.qq.subscribeMessages {
             case("turn on repeater") {
                 repeat = true;
-                reply("Done.")
+                quoteReply("Done.")
             }
             case("turn off repeater") {
                 repeat = false
-                reply("Done.")
+                quoteReply("Done.")
+            }
+            startsWith("RUN$", true) {
+                if (it.length > 30) quoteReply("YOU ARE TOO LONG AHHHHHHH!!!")
+                else quoteReply(network.run(mkList(it))[0].toString())
             }
             startsWith("") {
+                if (!repeat) return@startsWith
+
                 val text = message[PlainText]!!.contentToString()
                 if (text.length > 30) return@startsWith
                 history.add(text to Date())
                 counter[text] = (counter[text] ?: 0) + 1
 
-                network.train(mkList(text), listOf(
-                    sigmoid((counter[text] ?: 0) - 2.0)))
-                putJson("$conf.json",
-                    JsonObject(mapOf("base" to network.dump())))
+                val c = counter[text] ?: 0
+                network.train(mkList(text),
+                    listOf(sigmoid((c - 4.0) / 10.0) * 0.85))
+                putJson("$conf.json", JsonObject(mapOf("base" to network.dump())))
 
                 while (history.isNotEmpty() &&
-                    history.first().second.toInstant() + Duration.ofMinutes(20)
+                    history.first().second.toInstant() + Duration.ofMinutes(5)
                     < Date().toInstant()) {
                     val s = history.first().first
                     counter[s] = counter[s]!!.minus(1)
@@ -193,8 +200,10 @@ object Repeater {
                     history.removeFirst()
                 }
 
-                val result = network.run(mkList(text))
-                if (result[0] > limit) reply(text)
+                if (c == 1) {
+                    val result = network.run(mkList(text))
+                    if (result[0] > limit) reply(text)
+                }
             }
         }
         Unit

@@ -88,16 +88,20 @@ object Forward {
             val qGroup = uniBot.qq.groups[qq]
 
 
-            val msgs = mutableListOf<Message>((msg.displayName() + ": ").toMessage())
+            val msgs = mutableListOf<Message>(PlainText((msg.displayName() + ": ")))
 
             msg.reply_to_message?.let {
                 val id = uniBot.history.getQQ(it.message_id)
-                if (id == null) msgs.add("[Reply👆${it.displayName()}]".toMessage())
+                if (id == null) msgs.add(PlainText("[Reply👆${it.displayName()}]"))
                 else msgs.add(QuoteReply(id))
             }
 
             msg.text?.let {
-                msgs.add(it.toMessage())
+                msgs.add(PlainText(it))
+            }
+
+            msg.caption?.let {
+                msgs.add(PlainText(it))
             }
 
             // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
@@ -110,7 +114,7 @@ object Forward {
                 val filePath = uniBot.tgFileUrl(it.file_id)
                 if (filePath.endsWith(".tgs")) {
                     // TODO: Support .tgs format animated sticker
-                    msgs.add(" Unsupported .tgs format animated sticker".toMessage())
+                    msgs.add(PlainText(" Unsupported .tgs format animated sticker"))
                 } else {
                     val image = ImageIO.read(URL(filePath).openStream())
                     msgs.add(qGroup.uploadImage(image))
@@ -128,7 +132,7 @@ object Forward {
             Unit
         }
 
-        uniBot.tg.onMessage(handleTg)
+        uniBot.tgListener.add(handleTg)
         uniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 

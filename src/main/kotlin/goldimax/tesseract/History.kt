@@ -25,7 +25,11 @@ class History {
 
     fun getTG(id: MessageSource): Int? {
         update()
-        return timeTable.firstOrNull { it.qqID == id }?.tgID
+        return timeTable.firstOrNull { it.qqID.time == id.time
+                && it.qqID.id == id.id
+                && it.qqID.internalId == id.internalId
+                && it.qqID.fromId == id.fromId
+        }?.tgID
     }
 
     fun getQQ(id: Int): MessageSource? {
