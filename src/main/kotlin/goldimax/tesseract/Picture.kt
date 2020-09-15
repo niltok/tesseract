@@ -48,7 +48,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         error {
             testSu(uniBot)
 
-            val picName = message[PlainText]!!.contentToString().removePrefix("plz forget").trim()
+            val picName = (message[PlainText]?.toString() ?: "").removePrefix("plz forget").trim()
             dic[source.group.id]?.let { dic ->
                 check(picName.isNotEmpty()) { "Pardon?" }
                 checkNotNull(dic[picName]) { "Cannot find picture called $picName" }
@@ -61,7 +61,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
 
     fun handleSearch(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
-            val picName = message[PlainText].toString().removePrefix("look up").trim().toRegex()
+            val picName = (message[PlainText]?.toString() ?: "").removePrefix("look up").trim().toRegex()
             dic[source.group.id]?.let { dic ->
                 quoteReply(dic.keys.filter { picName in it } .take(20)
                     .joinToString(separator = "\n").or("Empty."))
@@ -71,7 +71,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
 
     fun handleReq(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
-            val picName = message[PlainText].toString().removePrefix("say").trim()
+            val picName = (message[PlainText]?.toString() ?: "").removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
             val reg = picName.toRegex()
             val maybe = dic[source.group.id]?.filter { it.key.contains(reg) }?.values?.randomOrNull()
@@ -86,7 +86,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
 
     fun handleAdd(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
-            val picName = message[PlainText].toString().removePrefix("remember").trim()
+            val picName = (message[PlainText]?.toString() ?: "").removePrefix("remember").trim()
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
             checkNull(dic[source.group.id]
                 ?.get(picName)) { "There is already a picture called $picName." }
@@ -103,7 +103,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
     }
 
     fun handleImReq(): suspend GroupMessageEvent.(String) -> Unit = {
-        val picName = message[PlainText].toString().trim()
+        val picName = (message[PlainText]?.toString() ?: "").trim()
         val maybe = dic[source.group.id]?.get(picName)
         if (maybe != null) {
             val qid = sendImage(File("$confName/$maybe")).source

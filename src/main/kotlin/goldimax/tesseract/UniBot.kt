@@ -1,5 +1,6 @@
 package goldimax.tesseract
 
+import com.alicloud.openservices.tablestore.SyncClient
 import com.beust.klaxon.JsonArray
 import com.beust.klaxon.JsonObject
 import com.elbekD.bot.types.Message
@@ -8,6 +9,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.alsoLogin
 import net.mamoe.mirai.join
+import java.io.File
 import com.elbekD.bot.Bot as tgBot
 import net.mamoe.mirai.Bot as qqBot
 
@@ -15,9 +17,12 @@ import net.mamoe.mirai.Bot as qqBot
 typealias SubscribeType = (UniBot) -> Unit
 
 @ExperimentalStdlibApi
-class UniBot(private val fileName: String) {
+class UniBot(private val fileName: String, envName: String) {
 
     val conf = getJson(fileName)
+    private val env = File(envName).readLines()
+
+    val table = SyncClient(env[0], env[1], env[2], env[3])
 
     val suMgr = SUManager(this)
 

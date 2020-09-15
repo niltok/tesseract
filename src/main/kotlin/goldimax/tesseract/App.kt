@@ -4,10 +4,10 @@ import kotlinx.coroutines.runBlocking
 import org.apache.log4j.BasicConfigurator
 
 @ExperimentalStdlibApi
-fun main() = runBlocking<Unit> {
+fun main() = runBlocking {
 //    Log4j configure
     BasicConfigurator.configure()
-    val bot = UniBot("conf.json")
+    val bot = UniBot("conf.json", "env")
 
     bot.subscribeAll(
         listOf(
@@ -17,7 +17,7 @@ fun main() = runBlocking<Unit> {
             ::tgOther,
             { counter(it, "count") },
             { Repeater.invoke(it, "repeater") },
-            { Markov.subscribe(it, "markov") },
+            { Markov(it) },
             { Reminder.subscribe(it, "reminder") }
         )
     ).start()
