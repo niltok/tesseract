@@ -17,34 +17,27 @@ import kotlin.collections.component2
 import kotlin.collections.set
 
 @ExperimentalStdlibApi
-val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
-    File("$confName.json").run {
-        if (!exists()) {
-            createNewFile()
-            //language=JSON
-            writeText("{}")
-        }
-    }
-    File(confName).run { if (!exists()) mkdir() }
+class Picture(private val uniBot: UniBot) {
 
-    val json = getJson("$confName.json")
+    private val json: JsonObject = uniBot.getJson("core", "key", "picture", "json")
 
-    val dic = json.map { (k, v) -> k.toLong() to (v as JsonArray<*>).map {
+    private val dic = json.map { (k, v) -> k.toLong() to (v as JsonArray<*>).map {
         (it as JsonObject).string("name")!! to it.string("uuid")!!
     }.toMap().toMutableMap() }.toMap().toMutableMap()
 
-    val logger = getLogger("Picture")
+    private val logger = getLogger("Picture")
 
-    fun save() {
+    private fun save() {
+        json.clear()
         dic.forEach { (k, v) ->
             json[k.toString()] = JsonArray(v.map { (x, y) ->
                 JsonObject(mapOf("name" to x, "uuid" to y))
             })
         }
-        putJson("$confName.json", json)
+        uniBot.putJson("core", "key", "picture", "json", json)
     }
 
-    fun handleRemove(): suspend GroupMessageEvent.(String) -> Unit = {
+    private fun handleRemove(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
             testSu(uniBot)
 
@@ -59,7 +52,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         }
     }
 
-    fun handleSearch(): suspend GroupMessageEvent.(String) -> Unit = {
+    private fun handleSearch(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
             val picName = (message[PlainText]?.toString() ?: "").removePrefix("look up").trim().toRegex()
             dic[source.group.id]?.let { dic ->
@@ -69,22 +62,22 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         }
     }
 
-    fun handleReq(): suspend GroupMessageEvent.(String) -> Unit = {
+    private fun handleReq(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
             val picName = (message[PlainText]?.toString() ?: "").removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
             val reg = picName.toRegex()
             val maybe = dic[source.group.id]?.filter { it.key.contains(reg) }?.values?.randomOrNull()
             checkNotNull(maybe) { "Cannot find picture called $picName." }
-            val qid = sendImage(File("$confName/$maybe")).source
+            val qid = sendImage(File("pic/$maybe")).source
             uniBot.connections.findTGByQQ(subject.id)?.let {
-                uniBot.tg.sendPhoto(it, File("$confName/$picName"))
+                uniBot.tg.sendPhoto(it, File("pic/$picName"))
                     .whenComplete { t, _ -> uniBot.history.insert(qid, t.message_id) }
             }
         }
     }
 
-    fun handleAdd(): suspend GroupMessageEvent.(String) -> Unit = {
+    private fun handleAdd(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
             val picName = (message[PlainText]?.toString() ?: "").removePrefix("remember").trim()
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
@@ -93,7 +86,7 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
             val picPath = UUID.randomUUID()
             val pic = message[Image]
             checkNotNull(pic) { "Cannot find picture in your message." }
-            pic.downloadTo(File("$confName/$picPath"))
+            pic.downloadTo(File("pic/$picPath"))
             if (dic[source.group.id] == null)
                 dic[source.group.id] = mutableMapOf(picName to picPath.toString())
             else dic[source.group.id]!![picName] = picPath.toString()
@@ -102,84 +95,93 @@ val picture: (UniBot, String) -> Unit = { uniBot: UniBot, confName: String ->
         }
     }
 
-    fun handleImReq(): suspend GroupMessageEvent.(String) -> Unit = {
+    private fun handleImReq(): suspend GroupMessageEvent.(String) -> Unit = {
         val picName = (message[PlainText]?.toString() ?: "").trim()
         val maybe = dic[source.group.id]?.get(picName)
         if (maybe != null) {
-            val qid = sendImage(File("$confName/$maybe")).source
+            val qid = sendImage(File("pic/$maybe")).source
             uniBot.connections.findTGByQQ(subject.id)?.let {
-                uniBot.tg.sendPhoto(it, File("$confName/$maybe"))
+                uniBot.tg.sendPhoto(it, File("pic/$maybe"))
                     .whenComplete { t, _ -> uniBot.history.insert(qid, t.message_id) }
             }
         }
     }
 
-    uniBot.qq.subscribeGroupMessages {
-        startsWith("remember", onEvent = handleAdd())
-        startsWith("say", onEvent = handleReq())
-        startsWith("look up", onEvent = handleSearch())
-        startsWith("plz forget", onEvent = handleRemove())
-        startsWith("", onEvent = handleImReq())
-    }
+    init {
+        uniBot.qq.subscribeGroupMessages {
+            startsWith("remember", onEvent = handleAdd())
+            startsWith("say", onEvent = handleReq())
+            startsWith("look up", onEvent = handleSearch())
+            startsWith("plz forget", onEvent = handleRemove())
+            startsWith("", onEvent = handleImReq())
+            startsWith("uuid$", true) {
+                error {
+                    quoteReply(dic[source.group.id]!![it]!!)
+                }
+            }
+        }
 
-    with(uniBot.tg) {
-        onCommand("/say") { msg, picName ->
-            logger.debug("say $picName with $msg")
-            error(msg) {
-                check(!picName.isNullOrBlank()) { "Pardon?" }
-                val reg = picName.trim().toRegex()
-                val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]
-                    ?.filter { it.key.contains(reg) }?.values?.randomOrNull()
-                checkNotNull(uuid) { "Cannot find picture called $picName." }
-                sendPhoto(msg.chat.id, File("$confName/$uuid")).whenComplete { t, _ ->
+        with(uniBot.tg) {
+            onCommand("/say") { msg, picName ->
+                logger.debug("say $picName with $msg")
+                error(msg) {
+                    check(!picName.isNullOrBlank()) { "Pardon?" }
+                    val reg = picName.trim().toRegex()
+                    val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]
+                        ?.filter { it.key.contains(reg) }?.values?.randomOrNull()
+                    checkNotNull(uuid) { "Cannot find picture called $picName." }
+                    sendPhoto(msg.chat.id, File("pic/$uuid")).whenComplete { t, _ ->
+                        GlobalScope.launch {
+                            uniBot.connections.findQQByTG(msg.chat.id)?.let {
+                                val qid = uniBot.qq.getGroup(it).sendImage(File("pic/$uuid")).source
+                                uniBot.history.insert(qid, t.message_id)
+                            }
+                        }
+                    }
+                }
+            }
+
+            uniBot.tgListener.add {
+                if (it.text.isNullOrBlank()) return@add
+                val maybe = dic[uniBot.connections.findQQByTG(it.chat.id)]?.get(it.text!!.trim())
+                if (maybe.isNullOrBlank()) return@add
+                logger.debug("implicit request ${it.text}")
+                sendPhoto(it.chat.id, File("pic/$maybe")).whenComplete { t, _ ->
                     GlobalScope.launch {
-                        uniBot.connections.findQQByTG(msg.chat.id)?.let {
-                            val qid = uniBot.qq.getGroup(it).sendImage(File("$confName/$uuid")).source
+                        uniBot.connections.findQQByTG(it.chat.id)?.let {
+                            val qid = uniBot.qq.getGroup(it).sendImage(File("pic/$maybe")).source
                             uniBot.history.insert(qid, t.message_id)
                         }
                     }
                 }
             }
-        }
 
-        uniBot.tgListener.add {
-            if (it.text.isNullOrBlank()) return@add
-            val maybe = dic[uniBot.connections.findQQByTG(it.chat.id)]?.get(it.text!!.trim())
-            if (maybe.isNullOrBlank()) return@add
-            logger.debug("implicit request ${it.text}")
-            sendPhoto(it.chat.id, File("$confName/$maybe")).whenComplete { t, _ ->
-                GlobalScope.launch {
-                    uniBot.connections.findQQByTG(it.chat.id)?.let {
-                        val qid = uniBot.qq.getGroup(it).sendImage(File("$confName/$maybe")).source
-                        uniBot.history.insert(qid, t.message_id)
-                    }
+            onCommand("/lookup") { msg, search ->
+                logger.debug("lookup with $msg")
+                error(msg) {
+                    val result = (dic[uniBot.connections.findQQByTG(msg.chat.id)]
+                        ?.let { dic ->
+                            (search?.run {
+                                dic.keys.filter { toRegex() in it }
+                            } ?: dic.keys)
+                        } ?: emptyList()).take(20)
+                        .joinToString("\n")
+                        .or("Empty.")
+                    sendMessage(msg.chat.id, result, replyTo = msg.message_id)
                 }
             }
-        }
 
-        onCommand("/lookup") { msg, search ->
-            logger.debug("lookup with $msg")
-            error(msg) {
-                val result = (dic[uniBot.connections.findQQByTG(msg.chat.id)]
-                    ?.let { dic -> (search?.run {
-                    dic.keys.filter { toRegex() in it }
-                } ?: dic.keys) } ?: emptyList()).take(20)
-                    .joinToString("\n")
-                    .or("Empty.")
-                sendMessage(msg.chat.id, result, replyTo = msg.message_id)
-            }
-        }
+            onCommand("/forget") { msg, picName ->
+                logger.debug("forget $picName with $msg")
+                error(msg) {
+                    check(!picName.isNullOrBlank()) { "Pardon?" }
+                    val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]?.get(picName)
+                    checkNotNull(uuid) { "Cannot find picture called $picName." }
 
-        onCommand("/forget") { msg, picName ->
-            logger.debug("forget $picName with $msg")
-            error(msg) {
-                check(!picName.isNullOrBlank()) { "Pardon?" }
-                val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]?.get(picName)
-                checkNotNull(uuid) { "Cannot find picture called $picName." }
-
-                dic[uniBot.connections.findQQByTG(msg.chat.id)]!!.remove(picName)
-                save()
-                sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)
+                    dic[uniBot.connections.findQQByTG(msg.chat.id)]!!.remove(picName)
+                    save()
+                    sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)
+                }
             }
         }
     }

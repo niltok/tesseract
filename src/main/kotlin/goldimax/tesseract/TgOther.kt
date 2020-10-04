@@ -30,7 +30,7 @@ fun tgOther(bot: UniBot) {
                 testSu(bot, msg)
 
                 bot.connections.internal.value.add(Connection(msg.text!!.trim().toLong(), msg.chat.id))
-                bot.save()
+                bot.connections.save()
 
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }

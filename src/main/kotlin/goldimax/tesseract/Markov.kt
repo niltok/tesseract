@@ -3,6 +3,9 @@ package goldimax.tesseract
 import com.alicloud.openservices.tablestore.model.*
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Klaxon
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.PlainText
 import java.lang.Math.random
@@ -11,6 +14,11 @@ import kotlin.math.*
 @ExperimentalStdlibApi
 class Markov(private val uniBot: UniBot) {
     private val rank = 3
+    private val p: MutableMap<Long, Double> =
+        uniBot.table.read("core", listOf("key" to "markov"))
+        ?.get("p")?.asString()?.let { Klaxon().parse<Map<String, Double>>(it)
+                ?.mapKeys { (k, _) -> k.toLong() } ?. toMutableMap() }
+            ?: mutableMapOf()
 
     private fun train(text: String) {
         val rolls = (text zip text.drop(1)).map { (a, b) -> "$a$b" }
@@ -25,11 +33,10 @@ class Markov(private val uniBot: UniBot) {
     }
 
     private fun putRoll(roll: String, m: MutableMap<String, Long>) {
-        println("putRoll $" + roll + ": " + JsonObject(m).toJsonString())
-        uniBot.table.putRow(PutRowRequest(RowPutChange("markov",
-            PrimaryKey(listOf(PrimaryKeyColumn("prefix",
-                PrimaryKeyValue.fromString(roll)))))
-            .addColumn("main", ColumnValue.fromString(JsonObject(m).toJsonString()))))
+        uniBot.table.write(
+            "markov",
+            listOf("prefix" to roll),
+            listOf("main" to cVal(JsonObject(m).toJsonString())))
     }
 
     private fun gen(text: String): Pair<Boolean, String> {
@@ -50,8 +57,15 @@ class Markov(private val uniBot: UniBot) {
         }
     }
 
+    private fun save() {
+        uniBot.table.write("core", listOf("key" to "markov"),
+            listOf("p" to cVal(JsonObject(p.mapKeys { (k, _) -> k.toString() }).toJsonString())))
+    }
+
     init {
-        uniBot.qq.subscribeMessages {
+        save()
+
+        uniBot.qq.subscribeGroupMessages {
             startsWith("PREFIX$", true) {
                 error { reply("#" +
                         (getRoll(it.take(3))?.get(it.drop(3))?.toString() ?: "null")) }
@@ -59,17 +73,48 @@ class Markov(private val uniBot: UniBot) {
             startsWith("Mk$") {
                 error {
                     val text = (message[PlainText]?.toString() ?: "").removePrefix("Mk$")
-                    val g = gen(text.take(rank))
+                    val g = gen(text.drop(floor(random() * (text.length - rank))
+                         .toInt()).take(rank))
                     uniBot.qq.logger.debug("Markov" + g.second)
                     reply((if (g.first) "✓|" else "✗|") + g.second)
                 }
             }
+            startsWith("Mp$", true) {
+                error {
+                    testSu(uniBot)
+                    p[source.group.id] = it.toDouble()
+                    save()
+                    reply("Done.")
+                }
+            }
             startsWith("") {
-                if (random() > 0.25) return@startsWith
                 val text = message[PlainText]?.toString() ?: ""
                 train("$text。")
-                val g = gen(text.drop(floor(random() * (text.length - rank - 1)).toInt()).take(rank))
-                if (g.first && g.second.length > 3) reply(g.second)
+                if (random() > (1.0 - (p[source.group.id] ?: 0.0))) return@startsWith
+                val g = gen(text.drop(floor(random() * (text.length - rank))
+                    .toInt()).take(rank))
+                if (g.first && g.second.length > rank) {
+                    val qm = reply(g.second)
+                    val tg = uniBot.connections.findTGByQQ(source.group.id)
+                    if (tg != null)  uniBot.tg.sendMessage(tg, g.second).whenComplete { t, _ ->
+                        uniBot.history.insert(qm.source, t.message_id)
+                    }
+                }
+            }
+        }
+
+        uniBot.tgListener.add { s ->
+            val text = s.text ?: ""
+            train("$text。")
+            if (random() > (1.0 - (p[uniBot.connections.findQQByTG(s.chat.id)] ?: 0.0))) return@add
+            val g = gen(text.drop(floor(random() * (text.length - rank)).toInt()).take(rank))
+            if (g.first && g.second.length > rank) {
+                uniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
+                    GlobalScope.launch {
+                    val qq = uniBot.connections.findQQByTG(s.chat.id)
+                    if (qq != null) uniBot.history.insert(
+                        uniBot.qq.getGroup(qq).sendMessage(g.second).source, t.message_id)
+                } }
             }
         }
 
@@ -77,12 +122,7 @@ class Markov(private val uniBot: UniBot) {
     }
 
     private fun getRoll(roll: String): MutableMap<String, Long>? {
-        val client = uniBot.table
-        val query = SingleRowQueryCriteria("markov",
-            PrimaryKey(listOf(PrimaryKeyColumn("prefix", PrimaryKeyValue.fromString(roll)))))
-        query.maxVersions = 1
-        return client.getRow(GetRowRequest(query)).row
-            ?. getColumn("main") ?. firstOrNull() ?. value ?. asString()
-            ?. let { Klaxon().parse(it) }
+        return uniBot.table.read("markov", listOf("prefix" to roll))
+            ?. get("main") ?. asString() ?. let { Klaxon().parse(it) }
     }
 }

@@ -1,6 +1,10 @@
 package goldimax.tesseract
 
+import com.alicloud.openservices.tablestore.SyncClient
+import com.alicloud.openservices.tablestore.model.*
+import com.beust.klaxon.JsonBase
 import com.beust.klaxon.JsonObject
+import com.beust.klaxon.Klaxon
 import com.beust.klaxon.Parser
 import com.elbekD.bot.Bot
 import com.elbekD.bot.http.await
@@ -14,12 +18,15 @@ import net.mamoe.mirai.message.data.queryUrl
 import java.io.File
 import java.net.URL
 
-fun getJson(fileName: String): JsonObject =
-    Parser.default()
-        .parse(fileName) as JsonObject
+@ExperimentalStdlibApi
+inline fun <reified T> UniBot.getJson(
+    table: String, key: String, keyName: String, column: String): T =
+    this.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
+        .let { Klaxon().parse(it)!! }
 
-fun putJson(fileName: String, obj: JsonObject) =
-    File(fileName).writeText(obj.toJsonString(true))
+@ExperimentalStdlibApi
+fun UniBot.putJson(table: String, key: String, keyName: String, column: String, obj: JsonBase) =
+    this.table.write(table, listOf(key to keyName), listOf(column to cVal(obj.toJsonString())))
 
 fun String.or(string: String) = if (isNullOrBlank()) string else this
 
@@ -74,3 +81,26 @@ inline fun Bot.error(id: Long, from: Int?, after: () -> Unit) = try {
 
 inline fun Bot.error(msg: Message, after: () -> Unit) =
     error(msg.chat.id, msg.message_id) { after() }
+
+fun SyncClient.read(table: String, key: List<Pair<String, String>>): Row? {
+    val query = SingleRowQueryCriteria(table, PrimaryKey(key.map{
+        PrimaryKeyColumn(it.first, PrimaryKeyValue.fromString(it.second)) }))
+    query.maxVersions = 1
+    return getRow(GetRowRequest(query)).row
+}
+
+fun SyncClient.write(
+    table: String,
+    key: List<Pair<String, String>>,
+    value: List<Pair<String, ColumnValue>>) {
+    val change = RowUpdateChange(table, PrimaryKey(key.map {
+        PrimaryKeyColumn(it.first, PrimaryKeyValue.fromString(it.second)) }))
+        .put(value.map { Column(it.first, it.second) })
+    updateRow(UpdateRowRequest(change))
+}
+
+fun cVal(v: String)    = ColumnValue.fromString(v)
+fun cVal(v: Long)      = ColumnValue.fromLong(v)
+fun cVal(v: ByteArray) = ColumnValue.fromBinary(v)
+
+operator fun Row.get(key: String) = getColumn(key).firstOrNull() ?. value

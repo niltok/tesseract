@@ -12,13 +12,12 @@ fun main() = runBlocking {
     bot.subscribeAll(
         listOf(
             Forward.invoke,
-            { uniBot: UniBot -> picture(uniBot, "pic") },
+            { Picture(it) },
             ::qqOther,
             ::tgOther,
-            { counter(it, "count") },
-            { Repeater.invoke(it, "repeater") },
+            { Counter(it) },
             { Markov(it) },
-            { Reminder.subscribe(it, "reminder") }
+            { Reminder(it) }
         )
     ).start()
 }

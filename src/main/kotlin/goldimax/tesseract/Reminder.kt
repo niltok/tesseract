@@ -11,53 +11,55 @@ import java.time.Instant
 import java.util.*
 
 @ExperimentalStdlibApi
-object Reminder {
+class Reminder(val uniBot: UniBot) {
     data class Remind(val content: String, val duration: Duration)
-    var reminders = mutableMapOf<Long, MutableMap<Long, Remind>>()
 
     val history = mutableMapOf<Long, MutableMap<Long, Instant>>()
 
-    fun subscribe(bot: UniBot, confName: String) {
-        File("$confName.json").run {
-            if (!exists()) {
-                createNewFile()
-                writeText("{}")
-            }
-        }
-        reminders = getJson("$confName.json").map { (k, v) ->
+
+    val reminders: MutableMap<Long, MutableMap<Long, Remind>> =
+        uniBot.getJson<JsonObject>("core", "key", "reminder", "json").map { (k, v) ->
             (k.toLong()) to (v as JsonObject).map { (k, v) ->
                 (k.toLong()) to (v as JsonObject).let {
                     Remind(it.string("content")!!, Duration.ofMinutes(it.long("duration")!!))
-                } } .toMap().toMutableMap()
-        } .toMap().toMutableMap()
-
-        fun save() {
-            putJson("$confName.json", JsonObject(reminders
-                .mapKeys { (k, _) -> k.toString() }
-                .mapValues { (_, v) -> JsonObject(v.mapKeys { (k, _) -> k.toString() }
-                    .mapValues { (_, v) ->
-                        JsonObject(mapOf("content" to v.content, "duration" to v.duration.toMinutes())) }) }))
-        }
-
-        suspend fun GroupMessageEvent.setReminder(prefix: String, duration: Duration) {
-            error {
-                val at = message[At]
-                val id = if (at == null) { sender.id } else {
-                    testSu(bot)
-                    at.target
                 }
-                if (reminders[source.group.id] == null)
-                    reminders[source.group.id] = mutableMapOf()
-                val content = message[PlainText].toString().removePrefix(prefix).trim()
-                reminders[source.group.id]!![id] = Remind(content, duration)
-                save()
-                quoteReply("Done.")
-            }
-        }
+            }.toMap().toMutableMap()
+        }.toMap().toMutableMap()
 
-        bot.qq.subscribeGroupMessages {
+    fun save() =
+        uniBot.putJson("core", "key", "reminder", "json", JsonObject(reminders
+            .mapKeys { (k, _) -> k.toString() }
+            .mapValues { (_, v) ->
+                JsonObject(v.mapKeys { (k, _) -> k.toString() }
+                    .mapValues { (_, v) ->
+                        JsonObject(mapOf("content" to v.content, "duration" to v.duration.toMinutes()))
+                    })
+            })
+        )
+
+    suspend fun GroupMessageEvent.setReminder(prefix: String, duration: Duration) {
+        error {
+            val at = message[At]
+            val id = if (at == null) {
+                sender.id
+            } else {
+                testSu(uniBot)
+                at.target
+            }
+            if (reminders[source.group.id] == null)
+                reminders[source.group.id] = mutableMapOf()
+            val content = message[PlainText].toString().removePrefix(prefix).trim()
+            reminders[source.group.id]!![id] = Remind(content, duration)
+            save()
+            quoteReply("Done.")
+        }
+    }
+
+    init {
+        uniBot.qq.subscribeGroupMessages {
             case("remove reminder") {
                 reminders[source.group.id]?.remove(sender.id)
+                save()
                 quoteReply("Done.")
             }
             startsWith("daily reminder ") {
