@@ -11,13 +11,14 @@ fun main() = runBlocking {
 
     bot.subscribeAll(
         listOf(
-            Forward.invoke,
-            { Picture(it) },
             ::qqOther,
             ::tgOther,
-            { Counter(it) },
+            Forward.invoke,
+            { Picture(it) },
             { Markov(it) },
-            { Reminder(it) }
+            { Counter(it) },
+            { Reminder(it) },
+            { Alarm(it) }
         )
     ).start()
 }

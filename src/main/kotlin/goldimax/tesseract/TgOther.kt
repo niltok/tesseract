@@ -25,22 +25,22 @@ fun tgOther(bot: UniBot) {
             )
         }
 
-        onCommand("/connect") { msg, _ ->
-            error {
+        onCommand("/connect") { msg, cmd ->
+            error(msg) {
                 testSu(bot, msg)
 
-                bot.connections.internal.value.add(Connection(msg.text!!.trim().toLong(), msg.chat.id))
+                bot.connections.connect.add(Connection(cmd!!.trim().toLong(), msg.chat.id))
                 bot.connections.save()
 
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
         }
 
-        onCommand("/add_su") { msg, _ ->
-            error {
+        onCommand("/add_su") { msg, cmd ->
+            error(msg) {
                 testSu(bot, msg)
 
-                bot.suMgr.tgAdmin.add(msg.text!!.trim().toLong())
+                bot.suMgr.tgAdmin.add(cmd!!.trim().toLong())
                 bot.suMgr.save()
 
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)

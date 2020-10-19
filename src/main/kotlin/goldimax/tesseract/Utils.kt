@@ -14,6 +14,8 @@ import kotlinx.coroutines.withContext
 import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.Image
+import net.mamoe.mirai.message.data.MessageSource
+import net.mamoe.mirai.message.data.isAboutTemp
 import net.mamoe.mirai.message.data.queryUrl
 import java.io.File
 import java.net.URL
@@ -104,3 +106,9 @@ fun cVal(v: Long)      = ColumnValue.fromLong(v)
 fun cVal(v: ByteArray) = ColumnValue.fromBinary(v)
 
 operator fun Row.get(key: String) = getColumn(key).firstOrNull() ?. value
+
+infix fun MessageSource.eq(ms: MessageSource) =
+    time == ms.time
+        && id == ms.id
+        && internalId == ms.internalId
+        && fromId == ms.fromId

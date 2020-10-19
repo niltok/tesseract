@@ -10,7 +10,7 @@ class History {
 
     private val timeTable = mutableListOf<Msg>()
 
-    fun update() {
+    private fun update() {
         while (timeTable.isNotEmpty() &&
             timeTable.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
             timeTable.removeFirst()
@@ -25,11 +25,7 @@ class History {
 
     fun getTG(id: MessageSource): Int? {
         update()
-        return timeTable.firstOrNull { it.qqID.time == id.time
-                && it.qqID.id == id.id
-                && it.qqID.internalId == id.internalId
-                && it.qqID.fromId == id.fromId
-        }?.tgID
+        return timeTable.firstOrNull { it.qqID eq id }?.tgID
     }
 
     fun getQQ(id: Int): MessageSource? {

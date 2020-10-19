@@ -11,33 +11,34 @@ import java.time.Instant
 import java.util.*
 
 @ExperimentalStdlibApi
-class Reminder(val uniBot: UniBot) {
+class Reminder(private val uniBot: UniBot) {
     data class Remind(val content: String, val duration: Duration)
 
-    val history = mutableMapOf<Long, MutableMap<Long, Instant>>()
+    private val history = mutableMapOf<Long, MutableMap<Long, Instant>>()
 
 
-    val reminders: MutableMap<Long, MutableMap<Long, Remind>> =
-        uniBot.getJson<JsonObject>("core", "key", "reminder", "json").map { (k, v) ->
-            (k.toLong()) to (v as JsonObject).map { (k, v) ->
-                (k.toLong()) to (v as JsonObject).let {
-                    Remind(it.string("content")!!, Duration.ofMinutes(it.long("duration")!!))
-                }
-            }.toMap().toMutableMap()
-        }.toMap().toMutableMap()
+    private val reminders: MutableMap<Long, MutableMap<Long, Remind>> = {
+        val json: Map<String, Map<String, Map<String, String>>> =
+            uniBot.getJson("core", "key", "reminder", "json")
+        json.mapKeys { it.key.toLong() } .mapValues {
+            it.value.mapKeys { it.key.toLong() }.mapValues {
+                Remind(it.value["content"]!!, Duration.ofMinutes(it.value["duration"]!!.toLong()))
+            }.toMutableMap()
+        }.toMutableMap()
+    }()
 
-    fun save() =
+    private fun save() =
         uniBot.putJson("core", "key", "reminder", "json", JsonObject(reminders
             .mapKeys { (k, _) -> k.toString() }
             .mapValues { (_, v) ->
                 JsonObject(v.mapKeys { (k, _) -> k.toString() }
                     .mapValues { (_, v) ->
-                        JsonObject(mapOf("content" to v.content, "duration" to v.duration.toMinutes()))
+                        JsonObject(mapOf("content" to v.content, "duration" to v.duration.toMinutes().toString()))
                     })
             })
         )
 
-    suspend fun GroupMessageEvent.setReminder(prefix: String, duration: Duration) {
+    private suspend fun GroupMessageEvent.setReminder(prefix: String, duration: Duration) {
         error {
             val at = message[At]
             val id = if (at == null) {
@@ -68,7 +69,7 @@ class Reminder(val uniBot: UniBot) {
             startsWith("weak reminder ") {
                 setReminder("weak reminder", Duration.ofHours(3))
             }
-            startsWith("medium reminder") {
+            startsWith("medium reminder ") {
                 setReminder("medium reminder", Duration.ofMinutes(30))
             }
             startsWith("strong reminder ") {

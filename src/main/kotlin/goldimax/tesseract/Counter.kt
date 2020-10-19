@@ -6,22 +6,20 @@ import net.mamoe.mirai.event.subscribeGroupMessages
 import java.io.File
 
 @ExperimentalStdlibApi
-class Counter(val uniBot: UniBot) {
-    val json: JsonObject = uniBot.getJson("core", "key", "counter", "json")
+class Counter(private val uniBot: UniBot) {
+    private val json: Map<String, List<Map<String, String>>> =
+        uniBot.getJson("core", "key", "counter", "json")
 
-    val dic = json.map {
-        it.key.toLong() to (it.value as JsonArray<*>).map {
-            (it as JsonObject).string("regex")!!.toRegex() to it.int("count")!!
+    private val dic = json.map {
+        it.key.toLong() to it.value.map {
+            it["regex"]!!.toRegex() to it["counter"]!!.toLong()
         }.toMap().toMutableMap()
     }.toMap().toMutableMap()
 
-    fun save() {
-        dic.forEach { (t, u) ->
-            json[t.toString()] = JsonArray(u.map { (x, y) ->
-                JsonObject(mapOf("regex" to x.pattern, "count" to y))
-            })
-        }
-        uniBot.putJson("core", "key", "counter", "json", json)
+    private fun save() {
+        uniBot.putJson("core", "key", "counter", "json",
+            JsonObject(dic.mapKeys { it.key.toString() }.mapValues { JsonArray(it.value.map {
+                    JsonObject(mapOf("regex" to it.key.pattern, "counter" to it.value.toString())) }) }))
     }
 
     init {
@@ -67,7 +65,7 @@ class Counter(val uniBot: UniBot) {
                     testSu(uniBot)
 
                     val entry = dic[source.group.id]
-                    if (entry == null) dic[source.group.id] = mutableMapOf(it.toRegex() to 0)
+                    if (entry == null) dic[source.group.id] = mutableMapOf(it.toRegex() to 0L)
                     else entry[it.toRegex()] = 0
                     save()
 

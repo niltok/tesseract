@@ -14,7 +14,7 @@ import com.elbekD.bot.Bot as tgBot
 import net.mamoe.mirai.Bot as qqBot
 
 @ExperimentalStdlibApi
-typealias SubscribeType = (UniBot) -> Unit
+typealias SubscribeType = (UniBot) -> Any
 
 @ExperimentalStdlibApi
 class UniBot(private val fileName: String, envName: String) {
@@ -37,6 +37,7 @@ class UniBot(private val fileName: String, envName: String) {
     val tgListener = mutableListOf<suspend (Message) -> Unit>()
     val connections = Connections(this)
     val history = History()
+    val actionMgr = TransactionManager(this)
 
     init {
         tg.onMessage { msg -> tgListener.forEach { it(msg) } }

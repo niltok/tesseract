@@ -26,7 +26,7 @@ class Markov(private val uniBot: UniBot) {
             .zip(text.drop(3).map { "$it"})
         rolls.forEach {
             val m = getRoll(it.first) ?: mutableMapOf()
-            val c = m[it.second] ?: 0
+            val c = m[it.second] ?: 0L
             m[it.second] = c + 1
             putRoll(it.first, m)
         }
@@ -63,8 +63,6 @@ class Markov(private val uniBot: UniBot) {
     }
 
     init {
-        save()
-
         uniBot.qq.subscribeGroupMessages {
             startsWith("PREFIX$", true) {
                 error { reply("#" +
@@ -90,7 +88,7 @@ class Markov(private val uniBot: UniBot) {
             startsWith("") {
                 val text = message[PlainText]?.toString() ?: ""
                 train("$text。")
-                if (random() > (1.0 - (p[source.group.id] ?: 0.0))) return@startsWith
+                if (text.length < 3 || random() < (1.0 - (p[source.group.id] ?: 0.0))) return@startsWith
                 val g = gen(text.drop(floor(random() * (text.length - rank))
                     .toInt()).take(rank))
                 if (g.first && g.second.length > rank) {
@@ -106,7 +104,7 @@ class Markov(private val uniBot: UniBot) {
         uniBot.tgListener.add { s ->
             val text = s.text ?: ""
             train("$text。")
-            if (random() > (1.0 - (p[uniBot.connections.findQQByTG(s.chat.id)] ?: 0.0))) return@add
+            if (text.length < 3 || random() < (1.0 - (p[uniBot.connections.findQQByTG(s.chat.id)] ?: 0.0))) return@add
             val g = gen(text.drop(floor(random() * (text.length - rank)).toInt()).take(rank))
             if (g.first && g.second.length > rank) {
                 uniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
@@ -117,8 +115,6 @@ class Markov(private val uniBot: UniBot) {
                 } }
             }
         }
-
-        Unit
     }
 
     private fun getRoll(roll: String): MutableMap<String, Long>? {

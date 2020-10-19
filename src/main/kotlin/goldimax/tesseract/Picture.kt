@@ -19,22 +19,19 @@ import kotlin.collections.set
 @ExperimentalStdlibApi
 class Picture(private val uniBot: UniBot) {
 
-    private val json: JsonObject = uniBot.getJson("core", "key", "picture", "json")
+    private val json: Map<String, List<Map<String, String>>> =
+        uniBot.getJson("core", "key", "picture", "json")
 
-    private val dic = json.map { (k, v) -> k.toLong() to (v as JsonArray<*>).map {
-        (it as JsonObject).string("name")!! to it.string("uuid")!!
+    private val dic = json.map { (k, v) -> k.toLong() to v.map {
+        it["name"]!! to it["uuid"]!!
     }.toMap().toMutableMap() }.toMap().toMutableMap()
 
     private val logger = getLogger("Picture")
 
     private fun save() {
-        json.clear()
-        dic.forEach { (k, v) ->
-            json[k.toString()] = JsonArray(v.map { (x, y) ->
-                JsonObject(mapOf("name" to x, "uuid" to y))
-            })
-        }
-        uniBot.putJson("core", "key", "picture", "json", json)
+        uniBot.putJson("core", "key", "picture", "json",
+            JsonObject(dic.mapKeys { it.key.toString() }
+                .mapValues { JsonArray(it.value.map { JsonObject(mapOf("name" to it.key, "uuid" to it.value)) }) }))
     }
 
     private fun handleRemove(): suspend GroupMessageEvent.(String) -> Unit = {
@@ -123,7 +120,6 @@ class Picture(private val uniBot: UniBot) {
 
         with(uniBot.tg) {
             onCommand("/say") { msg, picName ->
-                logger.debug("say $picName with $msg")
                 error(msg) {
                     check(!picName.isNullOrBlank()) { "Pardon?" }
                     val reg = picName.trim().toRegex()
@@ -145,7 +141,6 @@ class Picture(private val uniBot: UniBot) {
                 if (it.text.isNullOrBlank()) return@add
                 val maybe = dic[uniBot.connections.findQQByTG(it.chat.id)]?.get(it.text!!.trim())
                 if (maybe.isNullOrBlank()) return@add
-                logger.debug("implicit request ${it.text}")
                 sendPhoto(it.chat.id, File("pic/$maybe")).whenComplete { t, _ ->
                     GlobalScope.launch {
                         uniBot.connections.findQQByTG(it.chat.id)?.let {
@@ -174,6 +169,7 @@ class Picture(private val uniBot: UniBot) {
             onCommand("/forget") { msg, picName ->
                 logger.debug("forget $picName with $msg")
                 error(msg) {
+                    testSu(uniBot, msg)
                     check(!picName.isNullOrBlank()) { "Pardon?" }
                     val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]?.get(picName)
                     checkNotNull(uuid) { "Cannot find picture called $picName." }
