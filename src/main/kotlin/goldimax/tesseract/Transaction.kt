@@ -1,6 +1,8 @@
 package goldimax.tesseract
 
+import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.event.subscribeMessages
+import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.*
 import java.time.Duration

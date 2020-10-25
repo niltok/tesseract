@@ -3,12 +3,14 @@ package goldimax.tesseract
 import com.alicloud.openservices.tablestore.model.*
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Klaxon
+import com.beust.klaxon.Parser
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.PlainText
 import java.lang.Math.random
+import java.lang.StringBuilder
 import kotlin.math.*
 
 @ExperimentalStdlibApi
@@ -27,7 +29,7 @@ class Markov(private val uniBot: UniBot) {
         rolls.forEach {
             val m = getRoll(it.first) ?: mutableMapOf()
             val c = m[it.second] ?: 0L
-            m[it.second] = c + 1
+            m[it.second] = c + 1L
             putRoll(it.first, m)
         }
     }
@@ -104,7 +106,8 @@ class Markov(private val uniBot: UniBot) {
         uniBot.tgListener.add { s ->
             val text = s.text ?: ""
             train("$text。")
-            if (text.length < 3 || random() < (1.0 - (p[uniBot.connections.findQQByTG(s.chat.id)] ?: 0.0))) return@add
+            if (text.length < 3 || random() < (1.0 - (p[uniBot.connections.findQQByTG(s.chat.id)] ?: 0.0)))
+                return@add
             val g = gen(text.drop(floor(random() * (text.length - rank)).toInt()).take(rank))
             if (g.first && g.second.length > rank) {
                 uniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
@@ -119,6 +122,8 @@ class Markov(private val uniBot: UniBot) {
 
     private fun getRoll(roll: String): MutableMap<String, Long>? {
         return uniBot.table.read("markov", listOf("prefix" to roll))
-            ?. get("main") ?. asString() ?. let { Klaxon().parse(it) }
+            ?. get("main") ?. asString() ?. let {
+                (Parser.default().parse(StringBuilder(it)) as JsonObject)
+                    .map {(k, v) -> k to (v as Int).toLong() }.toMap().toMutableMap() }
     }
 }

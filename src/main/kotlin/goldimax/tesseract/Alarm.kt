@@ -1,19 +1,20 @@
 package goldimax.tesseract
 
+import com.beust.klaxon.JsonArray
+import com.beust.klaxon.JsonObject
 import io.ktor.util.InternalAPI
-import io.ktor.util.date.toDate
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import net.mamoe.mirai.event.subscribeMessages
+import net.mamoe.mirai.event.subscribeGroupMessages
+import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.*
 import java.time.Duration
-import java.time.Year
 import java.util.*
 import kotlin.concurrent.timerTask
 
 @ExperimentalStdlibApi
-class AlarmTransaction(val uniBot: UniBot, val alarm: Alarm): Transaction {
+class AlarmTransaction(val uniBot: UniBot, val alarm: Alarm, val group: Long): Transaction {
     var state = 0
     var time = Calendar.getInstance()
     var duration = Duration.ofDays(1)
@@ -45,14 +46,18 @@ class AlarmTransaction(val uniBot: UniBot, val alarm: Alarm): Transaction {
                 uniBot.actionMgr.attach(mr.source, id)
             }
             2 -> message.error {
-                val msg = message.message.filter { it is PlainText || it is Image || it is Face || it is At }
+                val msg = message.message.filter {
+                    it is PlainText || it is Image || it is Face ||
+                            it is At && it.target != uniBot.qq.id }
                 val timer = Timer()
                 timer.scheduleAtFixedRate(timerTask {
                     GlobalScope.launch { message.reply(msg.asMessageChain()) }
                 }, time.time, duration.toMillis())
                 val timerID = UUID.randomUUID()
-                val data = Alarm.AlarmData(timerID, time.time, duration.toMillis(), msg, timer)
+                val data = Alarm.AlarmData(timerID, time.time, duration.toMillis(),
+                    group, msg.toJson(uniBot), timer)
                 alarm.data.add(data)
+                alarm.save()
                 uniBot.actionMgr.remove(id)
                 message.quoteReply("Alarm created,\n" +
                         "UUID: $timerID.")
@@ -62,18 +67,42 @@ class AlarmTransaction(val uniBot: UniBot, val alarm: Alarm): Transaction {
 }
 
 @ExperimentalStdlibApi
-class Alarm(uniBot: UniBot) {
-    data class AlarmData(val id: UUID, val time: Date,
-                         val duration: Long, val message: List<SingleMessage>, val timer: Timer)
-    val data = mutableListOf<AlarmData>()
+class Alarm(val uniBot: UniBot) {
+    data class AlarmData(val id: UUID, val time: Date, val duration: Long,
+                         val group: Long, val msg: JsonArray<JsonObject>, val timer: Timer)
+    val data = {
+        val json: JsonArray<JsonObject> =
+            uniBot.getJson_("core", "key", "alarm", "json")
+        json.map {
+            val time = Date(it.long("time")!!)
+            val duration = it.long("duration")!!
+            val group = it.long("group")!!
+            val msg = it.array<JsonObject>("msg")!!
+            val timer = Timer()
+            timer.scheduleAtFixedRate(timerTask {
+                GlobalScope.launch {
+                    val g = uniBot.qq.getGroup(group)
+                    g.sendMessage(g.jsonMessage(uniBot, msg))
+                }
+            }, time, duration)
+            AlarmData(UUID.fromString(it.string("id")!!),
+                time, duration, group, msg, timer) }.toMutableList()
+    }()
+    fun save() {
+        val json = JsonArray(data.map { JsonObject(mapOf(
+            "id" to it.id.toString(), "time" to it.time.time, "duration" to it.duration,
+            "group" to it.group, "msg" to it.msg)) })
+        uniBot.putJson("core", "key", "alarm", "json", json)
+    }
     init {
+        save()
         val alarm = this
-        uniBot.qq.subscribeMessages {
+        uniBot.qq.subscribeGroupMessages {
             case("new alarm") {
                 error {
-                    val id = uniBot.actionMgr.insert(AlarmTransaction(uniBot, alarm))
+                    val id = uniBot.actionMgr.insert(AlarmTransaction(uniBot, alarm, source.group.id))
                     val mr = quoteReply(
-                        "[Testing, no save]Alarm creating...\n" +
+                        "Alarm creating...\n" +
                                 "Reply this message to set start time,\n" +
                                 "Format: offset-day hour minute"
                     )
@@ -90,7 +119,18 @@ class Alarm(uniBot: UniBot) {
                     val alarmData = data.first { x -> x.id.toString() == it.trim() }
                     quoteReply("start: ${alarmData.time}\n" +
                             "duration: ${Duration.ofMillis(alarmData.duration)}\n" +
-                            alarmData.message.joinToString { it.contentToString() })
+                            source.group.jsonMessage(uniBot, alarmData.msg))
+                }
+            }
+            startsWith("remove alarm ", true) {
+                error {
+                    val alarmData = data.first { x -> x.id.toString() == it.trim() }
+                    alarmData.msg.forEach { if (it.string("type")!! == "image") {
+                            uniBot.imageMgr.remove(UUID.fromString(it.string("value")!!))
+                    } }
+                    data.removeIf { it.id == alarmData.id }
+                    save()
+                    quoteReply("Done.")
                 }
             }
         }

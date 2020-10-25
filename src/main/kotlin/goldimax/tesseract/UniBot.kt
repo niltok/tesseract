@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.alsoLogin
 import net.mamoe.mirai.join
 import java.io.File
+import java.lang.Exception
 import com.elbekD.bot.Bot as tgBot
 import net.mamoe.mirai.Bot as qqBot
 
@@ -38,6 +39,7 @@ class UniBot(private val fileName: String, envName: String) {
     val connections = Connections(this)
     val history = History()
     val actionMgr = TransactionManager(this)
+    val imageMgr = ImageMgr(this)
 
     init {
         tg.onMessage { msg -> tgListener.forEach { it(msg) } }
@@ -53,7 +55,9 @@ class UniBot(private val fileName: String, envName: String) {
     }
 
     suspend fun start() {
-        subscribes.forEach { it(this) }
+        subscribes.forEach {
+            try { it(this) } catch (e: Exception) { qq.logger.error(e) }
+        }
         qq.join()
     }
 }
