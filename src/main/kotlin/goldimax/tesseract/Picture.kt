@@ -8,7 +8,9 @@ import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.PlainText
+import net.mamoe.mirai.message.data.queryUrl
 import net.mamoe.mirai.message.sendImage
+import net.mamoe.mirai.message.uploadImage
 import org.apache.log4j.LogManager.getLogger
 import java.io.File
 import java.util.*
@@ -42,6 +44,7 @@ class Picture(private val uniBot: UniBot) {
             dic[source.group.id]?.let { dic ->
                 check(picName.isNotEmpty()) { "Pardon?" }
                 checkNotNull(dic[picName]) { "Cannot find picture called $picName" }
+                uniBot.imageMgr.remove(UUID.fromString(dic[picName]))
                 dic.remove(picName)
                 save()
             }
@@ -66,9 +69,10 @@ class Picture(private val uniBot: UniBot) {
             val reg = picName.toRegex()
             val maybe = dic[source.group.id]?.filter { it.key.contains(reg) }?.values?.randomOrNull()
             checkNotNull(maybe) { "Cannot find picture called $picName." }
-            val qid = sendImage(File("pic/$maybe")).source
+            val img = uploadImage(uniBot.imageMgr[UUID.fromString(maybe)]!!.inputStream())
+            val qid = reply(img).source
             uniBot.connections.findTGByQQ(subject.id)?.let {
-                uniBot.tg.sendPhoto(it, File("pic/$picName"))
+                uniBot.tg.sendPhoto(it, img.queryUrl())
                     .whenComplete { t, _ -> uniBot.history.insert(qid, t.message_id) }
             }
         }
@@ -83,7 +87,7 @@ class Picture(private val uniBot: UniBot) {
             val picPath = UUID.randomUUID()
             val pic = message[Image]
             checkNotNull(pic) { "Cannot find picture in your message." }
-            pic.downloadTo(File("pic/$picPath"))
+            uniBot.imageMgr[picPath] = pic.bypes()
             if (dic[source.group.id] == null)
                 dic[source.group.id] = mutableMapOf(picName to picPath.toString())
             else dic[source.group.id]!![picName] = picPath.toString()
@@ -96,9 +100,10 @@ class Picture(private val uniBot: UniBot) {
         val picName = (message[PlainText]?.toString() ?: "").trim()
         val maybe = dic[source.group.id]?.get(picName)
         if (maybe != null) {
-            val qid = sendImage(File("pic/$maybe")).source
+            val img = uploadImage(uniBot.imageMgr[UUID.fromString(maybe)]!!.inputStream())
+            val qid = reply(img).source
             uniBot.connections.findTGByQQ(subject.id)?.let {
-                uniBot.tg.sendPhoto(it, File("pic/$maybe"))
+                uniBot.tg.sendPhoto(it, img.queryUrl())
                     .whenComplete { t, _ -> uniBot.history.insert(qid, t.message_id) }
             }
         }
@@ -126,12 +131,13 @@ class Picture(private val uniBot: UniBot) {
                     val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]
                         ?.filter { it.key.contains(reg) }?.values?.randomOrNull()
                     checkNotNull(uuid) { "Cannot find picture called $picName." }
-                    sendPhoto(msg.chat.id, File("pic/$uuid")).whenComplete { t, _ ->
-                        GlobalScope.launch {
-                            uniBot.connections.findQQByTG(msg.chat.id)?.let {
-                                val qid = uniBot.qq.getGroup(it).sendImage(File("pic/$uuid")).source
-                                uniBot.history.insert(qid, t.message_id)
-                            }
+                    GlobalScope.launch {
+                        val gid = uniBot.qq.getGroup(
+                            uniBot.connections.findQQByTG(msg.chat.id) ?: return@launch)
+                        val img = gid.uploadImage(uniBot.imageMgr[UUID.fromString(uuid)]!!.inputStream())
+                        val qid = gid.sendMessage(img).source
+                        sendPhoto(msg.chat.id, img.queryUrl()).whenComplete { t, _ ->
+                            uniBot.history.insert(qid, t.message_id)
                         }
                     }
                 }
@@ -141,12 +147,12 @@ class Picture(private val uniBot: UniBot) {
                 if (it.text.isNullOrBlank()) return@add
                 val maybe = dic[uniBot.connections.findQQByTG(it.chat.id)]?.get(it.text!!.trim())
                 if (maybe.isNullOrBlank()) return@add
-                sendPhoto(it.chat.id, File("pic/$maybe")).whenComplete { t, _ ->
-                    GlobalScope.launch {
-                        uniBot.connections.findQQByTG(it.chat.id)?.let {
-                            val qid = uniBot.qq.getGroup(it).sendImage(File("pic/$maybe")).source
-                            uniBot.history.insert(qid, t.message_id)
-                        }
+                GlobalScope.launch {
+                    val gid = uniBot.qq.getGroup(uniBot.connections.findQQByTG(it.chat.id) ?: return@launch)
+                    val img = gid.uploadImage(uniBot.imageMgr[UUID.fromString(maybe)]!!.inputStream())
+                    val qid = gid.sendMessage(img).source
+                    sendPhoto(it.chat.id, img.queryUrl()).whenComplete { t, _ ->
+                        uniBot.history.insert(qid, t.message_id)
                     }
                 }
             }
@@ -174,6 +180,7 @@ class Picture(private val uniBot: UniBot) {
                     val uuid = dic[uniBot.connections.findQQByTG(msg.chat.id)]?.get(picName)
                     checkNotNull(uuid) { "Cannot find picture called $picName." }
 
+                    uniBot.imageMgr.remove(UUID.fromString(uuid))
                     dic[uniBot.connections.findQQByTG(msg.chat.id)]!!.remove(picName)
                     save()
                     sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)

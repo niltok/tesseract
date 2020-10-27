@@ -10,14 +10,23 @@ import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.*
 import java.time.Duration
+import java.time.Instant
 import java.util.*
 import kotlin.concurrent.timerTask
 
+fun fixRateTimer(start: Date, duration: Long, task: () -> Unit): Timer {
+    var s = start.toInstant()
+    while (s < Instant.now()) s += Duration.ofMillis(duration)
+    val timer = Timer()
+    timer.scheduleAtFixedRate(timerTask { task() }, Date.from(s), duration)
+    return timer
+}
+
 @ExperimentalStdlibApi
-class AlarmTransaction(val uniBot: UniBot, val alarm: Alarm, val group: Long): Transaction {
+class AlarmTransaction(val uniBot: UniBot, private val alarm: Alarm, private val group: Long): Transaction {
     var state = 0
-    var time = Calendar.getInstance()
-    var duration = Duration.ofDays(1)
+    var time: Calendar = Calendar.getInstance()
+    var duration: Duration = Duration.ofDays(1)
     @InternalAPI
     override suspend fun handle(id: UUID, message: MessageEvent) {
         when (state) {
@@ -49,10 +58,9 @@ class AlarmTransaction(val uniBot: UniBot, val alarm: Alarm, val group: Long): T
                 val msg = message.message.filter {
                     it is PlainText || it is Image || it is Face ||
                             it is At && it.target != uniBot.qq.id }
-                val timer = Timer()
-                timer.scheduleAtFixedRate(timerTask {
+                val timer = fixRateTimer(time.time, duration.toMillis()) {
                     GlobalScope.launch { message.reply(msg.asMessageChain()) }
-                }, time.time, duration.toMillis())
+                }
                 val timerID = UUID.randomUUID()
                 val data = Alarm.AlarmData(timerID, time.time, duration.toMillis(),
                     group, msg.toJson(uniBot), timer)
@@ -78,13 +86,12 @@ class Alarm(val uniBot: UniBot) {
             val duration = it.long("duration")!!
             val group = it.long("group")!!
             val msg = it.array<JsonObject>("msg")!!
-            val timer = Timer()
-            timer.scheduleAtFixedRate(timerTask {
+            val timer = fixRateTimer(time, duration) {
                 GlobalScope.launch {
                     val g = uniBot.qq.getGroup(group)
                     g.sendMessage(g.jsonMessage(uniBot, msg))
                 }
-            }, time, duration)
+            }
             AlarmData(UUID.fromString(it.string("id")!!),
                 time, duration, group, msg, timer) }.toMutableList()
     }()
@@ -109,14 +116,16 @@ class Alarm(val uniBot: UniBot) {
                     uniBot.actionMgr.attach(mr.source, id)
                 }
             }
-            case("show alarms") {
+            case("show all alarms") {
                 error {
-                    quoteReply("Alarms:\n" + data.joinToString("\n") { it.id.toString() })
+                    quoteReply("Alarms:\n" + data.filter { it.group == source.group.id }
+                        .joinToString("\n") { it.id.toString() })
                 }
             }
             startsWith("show alarm ", true) {
                 error {
-                    val alarmData = data.first { x -> x.id.toString() == it.trim() }
+                    val alarmData = data.first { x -> x.id.toString() == it.trim()
+                            && x.group == source.group.id }
                     quoteReply("start: ${alarmData.time}\n" +
                             "duration: ${Duration.ofMillis(alarmData.duration)}\n" +
                             source.group.jsonMessage(uniBot, alarmData.msg))
@@ -124,7 +133,9 @@ class Alarm(val uniBot: UniBot) {
             }
             startsWith("remove alarm ", true) {
                 error {
-                    val alarmData = data.first { x -> x.id.toString() == it.trim() }
+                    val alarmData = data.first { x -> x.id.toString() == it.trim()
+                            && x.group == source.group.id }
+                    alarmData.timer.cancel()
                     alarmData.msg.forEach { if (it.string("type")!! == "image") {
                             uniBot.imageMgr.remove(UUID.fromString(it.string("value")!!))
                     } }

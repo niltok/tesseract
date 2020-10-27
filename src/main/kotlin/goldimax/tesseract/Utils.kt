@@ -124,8 +124,9 @@ fun cVal(v: ByteArray) = ColumnValue.fromBinary(v)
 
 operator fun Row.get(key: String) = getColumn(key).firstOrNull() ?. value
 
-infix fun MessageSource.eq(ms: MessageSource) = time == ms.time
-            && fromId == ms.fromId
+infix fun MessageSource.eq(ms: MessageSource) = id == ms.id
+        && internalId == ms.internalId
+        && fromId == ms.fromId
 
 @ExperimentalStdlibApi
 suspend fun SingleMessage.toJson(uniBot: UniBot) = when (this) {
@@ -145,7 +146,7 @@ suspend fun List<SingleMessage>.toJson(uniBot: UniBot) =
 suspend fun Group.jsonMessage(uniBot: UniBot, json: JsonObject) = when (json.string("type")!!) {
     "at" -> At(this[json.long("value")!!])
     "face" -> Face(json.int("value")!!)
-    "image" -> uploadImage(uniBot.imageMgr[UUID.fromString(json.string("value")!!)]!!.inputStream())
+    "image" -> uploadImage(uniBot.imageMgr.get(UUID.fromString(json.string("value")!!))!!.inputStream())
     "text" -> PlainText(json.string("value")!!)
     else -> PlainText("")
 }
