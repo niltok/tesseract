@@ -6,9 +6,9 @@ import net.mamoe.mirai.event.subscribeGroupMessages
 import java.io.File
 
 @ExperimentalStdlibApi
-class Counter(private val uniBot: UniBot) {
+object Counter {
     private val json: Map<String, List<Map<String, String>>> =
-        uniBot.getJson("core", "key", "counter", "json")
+        getJson("core", "key", "counter", "json")
 
     private val dic = json.map {
         it.key.toLong() to it.value.map {
@@ -17,13 +17,13 @@ class Counter(private val uniBot: UniBot) {
     }.toMap().toMutableMap()
 
     private fun save() {
-        uniBot.putJson("core", "key", "counter", "json",
+        putJson("core", "key", "counter", "json",
             JsonObject(dic.mapKeys { it.key.toString() }.mapValues { JsonArray(it.value.map {
                     JsonObject(mapOf("regex" to it.key.pattern, "counter" to it.value.toString())) }) }))
     }
 
     init {
-        uniBot.qq.subscribeGroupMessages {
+        UniBot.qq.subscribeGroupMessages {
             startsWith("") {
                 dic[source.group.id]?.run {
                     forEach { (reg, v) ->
@@ -36,7 +36,7 @@ class Counter(private val uniBot: UniBot) {
             }
         }
 
-        uniBot.qq.subscribeGroupMessages {
+        UniBot.qq.subscribeGroupMessages {
             case("counter info") {
                 error {
                     val entry = dic[source.group.id]
@@ -50,7 +50,7 @@ class Counter(private val uniBot: UniBot) {
 
             case("recount") {
                 error {
-                    testSu(uniBot)
+                    testSu()
 
                     val entry = dic[source.group.id]
                     entry?.forEach { entry[it.key] = 0 }
@@ -62,7 +62,7 @@ class Counter(private val uniBot: UniBot) {
 
             startsWith("add counter ", true) {
                 error {
-                    testSu(uniBot)
+                    testSu()
 
                     val entry = dic[source.group.id]
                     if (entry == null) dic[source.group.id] = mutableMapOf(it.toRegex() to 0L)
@@ -75,7 +75,7 @@ class Counter(private val uniBot: UniBot) {
 
             startsWith("remove counter ", true) {
                 error {
-                    testSu(uniBot)
+                    testSu()
 
                     dic[source.group.id]?.run {
                         filterKeys { reg -> reg.pattern == it }.forEach {

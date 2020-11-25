@@ -8,46 +8,48 @@ import net.mamoe.mirai.message.data.*
 import java.net.URL
 
 @ExperimentalStdlibApi
-fun qqOther(bot: UniBot) {
-    val qq = bot.qq
-    qq.subscribeMessages {
-        case("rainbow") {
-            val info = """
+object QQOther {
+    init {
+        val qq = UniBot.qq
+        qq.subscribeMessages {
+            case("rainbow") {
+                val info = """
                 Copy. I am online.${""/*Your ID is ${sender.id}.*/}
-                You are${if (bot.suMgr.isSuperuser(QQUser(sender.id))) "" else " not"} superuser.
+                You are${if (SUManager.isSuperuser(QQUser(sender.id))) "" else " not"} superuser.
                 Build: ${Manifests.read("Version")}
             """.trimIndent()
-            quoteReply(info)
-        }
-        startsWith("plz add su") {
-            error {
-                testSu(bot)
+                quoteReply(info)
+            }
+            startsWith("plz add su") {
+                error {
+                    testSu()
 
-                val id = message[PlainText].toString().removePrefix("plz add su").trim().let {
-                    if (it.isEmpty()) message[At]!!.target
-                    else it.toLong()
+                    val id = message[PlainText].toString().removePrefix("plz add su").trim().let {
+                        if (it.isEmpty()) message[At]!!.target
+                        else it.toLong()
+                    }
+                    SUManager.qqAdmin.add(id)
+                    SUManager.save()
+                    quoteReply("Done. $id has become superuser.")
                 }
-                bot.suMgr.qqAdmin.add(id)
-                bot.suMgr.save()
-                quoteReply("Done. $id has become superuser.")
             }
-        }
-        startsWith("is su") {
-            error {
-                if (bot.suMgr.isSuperuser(QQUser(message[At]!!.target))) quoteReply("Yes.")
-                else quoteReply("No.")
+            startsWith("is su") {
+                error {
+                    if (SUManager.isSuperuser(QQUser(message[At]!!.target))) quoteReply("Yes.")
+                    else quoteReply("No.")
+                }
             }
-        }
-        case("一言") {
-            error {
-                val json = Parser.default().parse(
-                    URL("https://v1.hitokoto.cn/")
-                        .openStream()
-                ) as JsonObject
-                reply("「${json.string("hitokoto")}」 —— ${json.string("from")}")
+            case("一言") {
+                error {
+                    val json = Parser.default().parse(
+                        URL("https://v1.hitokoto.cn/")
+                            .openStream()
+                    ) as JsonObject
+                    reply("「${json.string("hitokoto")}」 —— ${json.string("from")}")
+                }
             }
+            case("kiss me") quoteReply (Face(Face.qinqin))
+            case("mention all") reply (AtAll)
         }
-        case("kiss me") quoteReply (Face(Face.qinqin))
-        case("mention all") reply(AtAll)
     }
 }

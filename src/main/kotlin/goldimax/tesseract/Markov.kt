@@ -14,28 +14,31 @@ import java.lang.StringBuilder
 import kotlin.math.*
 
 @ExperimentalStdlibApi
-class Markov(private val uniBot: UniBot) {
+object Markov {
     private val rank = 3
     private val p: MutableMap<Long, Double> =
-        uniBot.table.read("core", listOf("key" to "markov"))
+        UniBot.table.read("core", listOf("key" to "markov"))
         ?.get("p")?.asString()?.let { Klaxon().parse<Map<String, Double>>(it)
                 ?.mapKeys { (k, _) -> k.toLong() } ?. toMutableMap() }
             ?: mutableMapOf()
+    private var state = ""
+
+    private fun train1(c: Char) {
+        state += c
+        if (state.length < rank + 1) return
+        val m = getRoll(state.take(rank)) ?: mutableMapOf()
+        val r = m[state.takeLast(1)] ?: 0L
+        m[state.takeLast(1)] = r + 1L
+        putRoll(state.take(rank), m)
+        state = state.drop(1)
+    }
 
     private fun train(text: String) {
-        val rolls = (text zip text.drop(1)).map { (a, b) -> "$a$b" }
-            .zip(text.drop(2).toList()).map { (a, b) -> "$a$b" }
-            .zip(text.drop(3).map { "$it"})
-        rolls.forEach {
-            val m = getRoll(it.first) ?: mutableMapOf()
-            val c = m[it.second] ?: 0L
-            m[it.second] = c + 1L
-            putRoll(it.first, m)
-        }
+        text.forEach { train1(it) }
     }
 
     private fun putRoll(roll: String, m: MutableMap<String, Long>) {
-        uniBot.table.write(
+        UniBot.table.write(
             "markov",
             listOf("prefix" to roll),
             listOf("main" to cVal(JsonObject(m).toJsonString())))
@@ -60,12 +63,12 @@ class Markov(private val uniBot: UniBot) {
     }
 
     private fun save() {
-        uniBot.table.write("core", listOf("key" to "markov"),
+        UniBot.table.write("core", listOf("key" to "markov"),
             listOf("p" to cVal(JsonObject(p.mapKeys { (k, _) -> k.toString() }).toJsonString())))
     }
 
     init {
-        uniBot.qq.subscribeGroupMessages {
+        UniBot.qq.subscribeGroupMessages {
             startsWith("PREFIX$", true) {
                 error { reply("#" +
                         (getRoll(it.take(3))?.get(it.drop(3))?.toString() ?: "null")) }
@@ -73,55 +76,56 @@ class Markov(private val uniBot: UniBot) {
             startsWith("Mk$") {
                 error {
                     val text = (message[PlainText]?.toString() ?: "").removePrefix("Mk$")
+                    check(text.length >= 3) { "It's toooooo short." }
                     val g = gen(text.drop(floor(random() * (text.length - rank))
                          .toInt()).take(rank))
-                    uniBot.qq.logger.debug("Markov" + g.second)
+                    UniBot.qq.logger.debug("Markov" + g.second)
                     reply((if (g.first) "✓|" else "✗|") + g.second)
                 }
             }
             startsWith("Mp$", true) {
                 error {
-                    testSu(uniBot)
+                    testSu()
                     p[source.group.id] = it.toDouble()
                     save()
                     reply("Done.")
                 }
             }
             startsWith("") {
-                val text = message[PlainText]?.toString() ?: ""
-                train("$text。")
+                val text = message[PlainText]?.content?.plus("。") ?: ""
+                train(text)
                 if (text.length < 3 || random() < (1.0 - (p[source.group.id] ?: 0.0))) return@startsWith
                 val g = gen(text.drop(floor(random() * (text.length - rank))
                     .toInt()).take(rank))
                 if (g.first && g.second.length > rank) {
                     val qm = reply(g.second)
-                    val tg = uniBot.connections.findTGByQQ(source.group.id)
-                    if (tg != null)  uniBot.tg.sendMessage(tg, g.second).whenComplete { t, _ ->
-                        uniBot.history.insert(qm.source, t.message_id)
+                    val tg = Connections.findTGByQQ(source.group.id)
+                    if (tg != null)  UniBot.tg.sendMessage(tg, g.second).whenComplete { t, _ ->
+                        History.insert(qm.source, t.message_id)
                     }
                 }
             }
         }
 
-        uniBot.tgListener.add { s ->
+        UniBot.tgListener.add { s ->
             val text = s.text ?: ""
             train("$text。")
-            if (text.length < 3 || random() < (1.0 - (p[uniBot.connections.findQQByTG(s.chat.id)] ?: 0.0)))
+            if (text.length < 3 || random() < (1.0 - (p[Connections.findQQByTG(s.chat.id)] ?: 0.0)))
                 return@add
             val g = gen(text.drop(floor(random() * (text.length - rank)).toInt()).take(rank))
             if (g.first && g.second.length > rank) {
-                uniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
+                UniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
                     GlobalScope.launch {
-                    val qq = uniBot.connections.findQQByTG(s.chat.id)
-                    if (qq != null) uniBot.history.insert(
-                        uniBot.qq.getGroup(qq).sendMessage(g.second).source, t.message_id)
+                    val qq = Connections.findQQByTG(s.chat.id)
+                    if (qq != null) History.insert(
+                        UniBot.qq.getGroup(qq).sendMessage(g.second).source, t.message_id)
                 } }
             }
         }
     }
 
     private fun getRoll(roll: String): MutableMap<String, Long>? {
-        return uniBot.table.read("markov", listOf("prefix" to roll))
+        return UniBot.table.read("markov", listOf("prefix" to roll))
             ?. get("main") ?. asString() ?. let {
                 (Parser.default().parse(StringBuilder(it)) as JsonObject)
                     .map {(k, v) -> k to (v as Int).toLong() }.toMap().toMutableMap() }

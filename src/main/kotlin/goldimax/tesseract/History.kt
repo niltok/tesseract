@@ -5,7 +5,7 @@ import java.time.Duration
 import java.util.*
 
 @ExperimentalStdlibApi
-class History {
+object History {
     private data class Msg(val qqID: MessageSource, val tgID: Int, val time: Date = Date())
 
     private val timeTable = mutableListOf<Msg>()

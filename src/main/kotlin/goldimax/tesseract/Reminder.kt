@@ -11,7 +11,7 @@ import java.time.Instant
 import java.util.*
 
 @ExperimentalStdlibApi
-class Reminder(private val uniBot: UniBot) {
+object Reminder {
     data class Remind(val content: String, val duration: Duration)
 
     private val history = mutableMapOf<Long, MutableMap<Long, Instant>>()
@@ -19,7 +19,7 @@ class Reminder(private val uniBot: UniBot) {
 
     private val reminders: MutableMap<Long, MutableMap<Long, Remind>> = {
         val json: Map<String, Map<String, Map<String, String>>> =
-            uniBot.getJson("core", "key", "reminder", "json")
+            getJson("core", "key", "reminder", "json")
         json.mapKeys { it.key.toLong() } .mapValues {
             it.value.mapKeys { it.key.toLong() }.mapValues {
                 Remind(it.value["content"]!!, Duration.ofMinutes(it.value["duration"]!!.toLong()))
@@ -28,7 +28,7 @@ class Reminder(private val uniBot: UniBot) {
     }()
 
     private fun save() =
-        uniBot.putJson("core", "key", "reminder", "json", JsonObject(reminders
+        putJson("core", "key", "reminder", "json", JsonObject(reminders
             .mapKeys { (k, _) -> k.toString() }
             .mapValues { (_, v) ->
                 JsonObject(v.mapKeys { (k, _) -> k.toString() }
@@ -44,7 +44,7 @@ class Reminder(private val uniBot: UniBot) {
             val id = if (at == null) {
                 sender.id
             } else {
-                testSu(uniBot)
+                testSu()
                 at.target
             }
             if (reminders[source.group.id] == null)
@@ -57,7 +57,7 @@ class Reminder(private val uniBot: UniBot) {
     }
 
     init {
-        uniBot.qq.subscribeGroupMessages {
+        UniBot.qq.subscribeGroupMessages {
             case("remove reminder") {
                 reminders[source.group.id]?.remove(sender.id)
                 save()

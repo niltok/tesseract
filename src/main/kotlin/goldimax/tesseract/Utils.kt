@@ -19,23 +19,26 @@ import net.mamoe.mirai.message.uploadImage
 import java.io.File
 import java.lang.StringBuilder
 import java.net.URL
+import java.time.Duration
+import java.time.Instant
 import java.util.*
+import kotlin.concurrent.timerTask
 
 @ExperimentalStdlibApi
-inline fun <reified T> UniBot.getJson(
+inline fun <reified T> getJson(
     table: String, key: String, keyName: String, column: String): T =
-    this.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
+    UniBot.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
         .let { Klaxon().parse(it)!! }
 
 @ExperimentalStdlibApi
-inline fun <reified T> UniBot.getJson_(
+inline fun <reified T> getJson_(
     table: String, key: String, keyName: String, column: String): T =
-    this.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
+    UniBot.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
         .let { Parser.default().parse(StringBuilder(it)) as T }
 
 @ExperimentalStdlibApi
-fun UniBot.putJson(table: String, key: String, keyName: String, column: String, obj: JsonBase) =
-    this.table.write(table, listOf(key to keyName), listOf(column to cVal(obj.toJsonString())))
+fun putJson(table: String, key: String, keyName: String, column: String, obj: JsonBase) =
+    UniBot.table.write(table, listOf(key to keyName), listOf(column to cVal(obj.toJsonString())))
 
 fun String.or(string: String) = if (isNullOrBlank()) string else this
 
@@ -50,12 +53,12 @@ suspend inline fun MessageEvent.error(after: () -> Unit) = try {
 }
 
 @ExperimentalStdlibApi
-fun MessageEvent.testSu(bot: UniBot) =
-    check(bot.suMgr.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
+fun MessageEvent.testSu() =
+    check(SUManager.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
 
 @ExperimentalStdlibApi
-fun testSu(bot: UniBot, msg: Message) =
-    check(bot.suMgr.isSuperuser(TGUser(msg.from!!.id.toLong()))) { "Sorry, you are not superuser." }
+fun testSu(msg: Message) =
+    check(SUManager.isSuperuser(TGUser(msg.from!!.id.toLong()))) { "Sorry, you are not superuser." }
 
 fun Member.displayName() =
     when {
@@ -76,9 +79,9 @@ suspend fun Image.bypes() = this.let {
 }
 
 @ExperimentalStdlibApi
-suspend fun UniBot.tgFileUrl(fileID: String) =
-    "https://api.telegram.org/file/bot${tgToken}/${
-    tg.getFile(fileID).await().file_path}"
+suspend fun tgFileUrl(fileID: String) =
+    "https://api.telegram.org/file/bot${UniBot.tgToken}/${
+    UniBot.tg.getFile(fileID).await().file_path}"
 
 // tg
 fun Message.displayName() =
@@ -129,28 +132,36 @@ infix fun MessageSource.eq(ms: MessageSource) = id == ms.id
         && fromId == ms.fromId
 
 @ExperimentalStdlibApi
-suspend fun SingleMessage.toJson(uniBot: UniBot) = when (this) {
+suspend fun SingleMessage.toJson() = when (this) {
     is At -> JsonObject(mapOf("type" to "at", "value" to target))
     is Face -> JsonObject(mapOf("type" to "face", "value" to id))
     is Image -> JsonObject(mapOf("type" to "image",
-        "value" to uniBot.imageMgr.new(bypes())))
+        "value" to ImageMgr.new(bypes())))
     is PlainText -> JsonObject(mapOf("type" to "text", "value" to content))
     else -> JsonObject(mapOf("type" to "unknown"))
 }
 
 @ExperimentalStdlibApi
-suspend fun List<SingleMessage>.toJson(uniBot: UniBot) =
-    JsonArray(this.map { it.toJson(uniBot) })
+suspend fun List<SingleMessage>.toJson() =
+    JsonArray(this.map { it.toJson() })
 
 @ExperimentalStdlibApi
-suspend fun Group.jsonMessage(uniBot: UniBot, json: JsonObject) = when (json.string("type")!!) {
+suspend fun Group.jsonMessage(json: JsonObject) = when (json.string("type")!!) {
     "at" -> At(this[json.long("value")!!])
     "face" -> Face(json.int("value")!!)
-    "image" -> uploadImage(uniBot.imageMgr.get(UUID.fromString(json.string("value")!!))!!.inputStream())
+    "image" -> uploadImage(ImageMgr.get(UUID.fromString(json.string("value")!!))!!.inputStream())
     "text" -> PlainText(json.string("value")!!)
     else -> PlainText("")
 }
 
 @ExperimentalStdlibApi
-suspend fun Group.jsonMessage(uniBot: UniBot, json: JsonArray<JsonObject>) =
-    json.map { jsonMessage(uniBot, it) } .asMessageChain()
+suspend fun Group.jsonMessage(json: JsonArray<JsonObject>) =
+    json.map { jsonMessage(it) } .asMessageChain()
+
+fun fixRateTimer(start: Date, duration: Long, task: () -> Unit): Timer {
+    var s = start.toInstant()
+    while (s < Instant.now()) s += Duration.ofMillis(duration)
+    val timer = Timer()
+    timer.scheduleAtFixedRate(timerTask { task() }, Date.from(s), duration)
+    return timer
+}

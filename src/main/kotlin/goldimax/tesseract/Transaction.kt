@@ -8,12 +8,13 @@ import net.mamoe.mirai.message.data.*
 import java.time.Duration
 import java.util.*
 
+@ExperimentalStdlibApi
 interface Transaction {
     suspend fun handle(id: UUID, message: MessageEvent)
 }
 
 @ExperimentalStdlibApi
-class TransactionManager(uniBot: UniBot) {
+object TransactionManager {
     data class ActionData(val id: UUID, val time: Date, val action: Transaction)
     private val transactions = mutableListOf<ActionData>()
 
@@ -46,14 +47,16 @@ class TransactionManager(uniBot: UniBot) {
     }
 
     init {
-        uniBot.qq.subscribeMessages {
+        UniBot.qq.subscribeMessages {
             startsWith("") {
-                update()
-                val at = message[QuoteReply] ?: return@startsWith
-                val id = attached.firstOrNull { it.ms eq at.source }?.id ?: return@startsWith
-                val ta = transactions.firstOrNull { it.id == id }?.action
-                if (ta == null) quoteReply("Transaction expired.")
-                else ta.handle(id, this)
+                error {
+                    update()
+                    val at = message[QuoteReply] ?: return@startsWith
+                    val id = attached.firstOrNull { it.ms eq at.source }?.id ?: return@startsWith
+                    val ta = transactions.firstOrNull { it.id == id }?.action
+                    if (ta == null) quoteReply("Transaction expired.")
+                    else ta.handle(id, this)
+                }
             }
         }
     }

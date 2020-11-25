@@ -20,9 +20,9 @@ fun extractRichMessage(content: String): List<Element> =
 @ExperimentalStdlibApi
 object Forward {
     private val logger: Logger = LogManager.getLogger(this.javaClass)
-    val forward: (UniBot) -> Unit = { uniBot ->
+    val forward: () -> Unit = {
         val handleQQ: suspend GroupMessageEvent.(String) -> Unit = lambda@{
-            val tGroup = uniBot.connections.findTGByQQ(subject.id)
+            val tGroup = Connections.findTGByQQ(subject.id)
             if (tGroup == null) {
                 logger.info("cannot find connect by qq ${subject.id}")
                 return@lambda
@@ -43,7 +43,7 @@ object Forward {
                             is At -> msg.display + " "
                             is AtAll -> AtAll.display + " "
                             is QuoteReply -> {
-                                reply = uniBot.history.getTG(msg.source)
+                                reply = History.getTG(msg.source)
                                 if (reply == null)
                                     String.format("[Reply\uD83D\uDC46%s: %s]",
                                         subject.members[msg.source.fromId].displayName(),
@@ -67,31 +67,31 @@ object Forward {
 
             val caption = String.format("<b>%s</b>: %s", sender.displayName(), msgText)
             when (imgs.size) {
-                0 -> uniBot.tg.sendMessage(tGroup, caption, replyTo = reply, parseMode = "html")
-                    .whenComplete { t, u -> logger.info(u); uniBot.history.insert(source, t.message_id) }
-                1 -> uniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply, parseMode = "html")
-                    .whenComplete { t, _ -> uniBot.history.insert(source, t.message_id) }
-                else -> uniBot.tg.sendMediaGroup(tGroup, imgs.map {
-                        uniBot.tg.mediaPhoto(it, caption =  caption, parseMode = "html") }, replyTo = reply)
-                    .whenComplete{ t, _ -> uniBot.history.insert(source, t.first().message_id) }
+                0 -> UniBot.tg.sendMessage(tGroup, caption, replyTo = reply, parseMode = "html")
+                    .whenComplete { t, u -> logger.info(u); History.insert(source, t.message_id) }
+                1 -> UniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply, parseMode = "html")
+                    .whenComplete { t, _ -> History.insert(source, t.message_id) }
+                else -> UniBot.tg.sendMediaGroup(tGroup, imgs.map {
+                        UniBot.tg.mediaPhoto(it, caption =  caption, parseMode = "html") }, replyTo = reply)
+                    .whenComplete{ t, _ -> History.insert(source, t.first().message_id) }
             }
         }
 
         val handleTg: suspend (TGMsg) -> Unit = lambda@{ msg ->
             logger.debug("receive tg ${msg.text}")
             if (drive) return@lambda
-            val qq = uniBot.connections.findQQByTG(msg.chat.id)
+            val qq = Connections.findQQByTG(msg.chat.id)
             logger.info("transfering to ${msg.chat.id}")
             if (qq == null) {
                 return@lambda
             }
-            val qGroup = uniBot.qq.groups[qq]
+            val qGroup = UniBot.qq.groups[qq]
 
 
             val msgs = mutableListOf<Message>(PlainText((msg.displayName() + ": ")))
 
             msg.reply_to_message?.let {
-                val id = uniBot.history.getQQ(it.message_id)
+                val id = History.getQQ(it.message_id)
                 if (id == null) msgs.add(PlainText("[Reply👆${it.displayName()}]"))
                 else msgs.add(QuoteReply(id))
             }
@@ -105,13 +105,13 @@ object Forward {
             }
 
             // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
-            msg.photo?.maxBy { it.file_size }?.let {
-                val image = ImageIO.read(URL(uniBot.tgFileUrl(it.file_id)).openStream())
+            msg.photo?.maxByOrNull { it.file_size }?.let {
+                val image = ImageIO.read(URL(tgFileUrl(it.file_id)).openStream())
                 msgs.add(qGroup.uploadImage(image))
             }
 
             msg.sticker?.let {
-                val filePath = uniBot.tgFileUrl(it.file_id)
+                val filePath = tgFileUrl(it.file_id)
                 if (filePath.endsWith(".tgs")) {
                     // TODO: Support .tgs format animated sticker
                     msgs.add(PlainText(" Unsupported .tgs format animated sticker"))
@@ -122,23 +122,23 @@ object Forward {
             }
 
             msg.animation?.let {
-                val image = ImageIO.read(URL(uniBot.tgFileUrl(it.file_id)).openStream())
+                val image = ImageIO.read(URL(tgFileUrl(it.file_id)).openStream())
                 msgs.add(qGroup.uploadImage(image))
             }
 
             val qid = qGroup.sendMessage(msgs.asMessageChain()).source
-            uniBot.history.insert(qid, msg.message_id)
+            History.insert(qid, msg.message_id)
 
             Unit
         }
 
-        uniBot.tgListener.add(handleTg)
-        uniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
+        UniBot.tgListener.add(handleTg)
+        UniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 
     var drive = false
-    val manager = { uniBot: UniBot ->
-        uniBot.qq.subscribeGroupMessages {
+    val manager = {
+        UniBot.qq.subscribeGroupMessages {
 
             startsWith("QQIMG", true) {
                 quoteReply(Image(it.trim()))
@@ -149,7 +149,7 @@ object Forward {
             }
         }
 
-        uniBot.tg.run {
+        UniBot.tg.run {
             onCommand("/drive") { msg, _ ->
                 drive = true
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
@@ -162,8 +162,8 @@ object Forward {
         }
     }
 
-    val invoke: SubscribeType = { uniBot ->
-        manager(uniBot)
-        forward(uniBot)
+    init {
+        manager()
+        forward()
     }
 }
