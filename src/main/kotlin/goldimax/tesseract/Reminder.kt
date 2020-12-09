@@ -10,7 +10,6 @@ import java.time.Duration
 import java.time.Instant
 import java.util.*
 
-@ExperimentalStdlibApi
 object Reminder {
     data class Remind(val content: String, val duration: Duration)
 

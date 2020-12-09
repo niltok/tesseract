@@ -8,7 +8,6 @@ data class Connection(
     val tg: Long
 )
 
-@ExperimentalStdlibApi
 object Connections {
     val connect = {
         val conf =

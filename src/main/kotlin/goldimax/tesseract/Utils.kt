@@ -6,6 +6,10 @@ import com.beust.klaxon.*
 import com.elbekD.bot.Bot
 import com.elbekD.bot.http.await
 import com.elbekD.bot.types.Message
+import io.ktor.application.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.util.pipeline.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.mamoe.mirai.LowLevelAPI
@@ -24,19 +28,16 @@ import java.time.Instant
 import java.util.*
 import kotlin.concurrent.timerTask
 
-@ExperimentalStdlibApi
 inline fun <reified T> getJson(
     table: String, key: String, keyName: String, column: String): T =
     UniBot.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
         .let { Klaxon().parse(it)!! }
 
-@ExperimentalStdlibApi
 inline fun <reified T> getJson_(
     table: String, key: String, keyName: String, column: String): T =
     UniBot.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
         .let { Parser.default().parse(StringBuilder(it)) as T }
 
-@ExperimentalStdlibApi
 fun putJson(table: String, key: String, keyName: String, column: String, obj: JsonBase) =
     UniBot.table.write(table, listOf(key to keyName), listOf(column to cVal(obj.toJsonString())))
 
@@ -52,11 +53,9 @@ suspend inline fun MessageEvent.error(after: () -> Unit) = try {
     reply(e.localizedMessage)
 }
 
-@ExperimentalStdlibApi
 fun MessageEvent.testSu() =
     check(SUManager.isSuperuser(QQUser(sender.id))) { "Sorry, you are not superuser." }
 
-@ExperimentalStdlibApi
 fun testSu(msg: Message) =
     check(SUManager.isSuperuser(TGUser(msg.from!!.id.toLong()))) { "Sorry, you are not superuser." }
 
@@ -78,7 +77,6 @@ suspend fun Image.bypes() = this.let {
     withContext(Dispatchers.IO) { URL(it.queryUrl()).openStream().readAllBytes() }
 }
 
-@ExperimentalStdlibApi
 suspend fun tgFileUrl(fileID: String) =
     "https://api.telegram.org/file/bot${UniBot.tgToken}/${
     UniBot.tg.getFile(fileID).await().file_path}"
@@ -131,7 +129,6 @@ infix fun MessageSource.eq(ms: MessageSource) = id == ms.id
         && internalId == ms.internalId
         && fromId == ms.fromId
 
-@ExperimentalStdlibApi
 suspend fun SingleMessage.toJson() = when (this) {
     is At -> JsonObject(mapOf("type" to "at", "value" to target))
     is Face -> JsonObject(mapOf("type" to "face", "value" to id))
@@ -141,11 +138,9 @@ suspend fun SingleMessage.toJson() = when (this) {
     else -> JsonObject(mapOf("type" to "unknown"))
 }
 
-@ExperimentalStdlibApi
 suspend fun List<SingleMessage>.toJson() =
     JsonArray(this.map { it.toJson() })
 
-@ExperimentalStdlibApi
 suspend fun Group.jsonMessage(json: JsonObject) = when (json.string("type")!!) {
     "at" -> At(this[json.long("value")!!])
     "face" -> Face(json.int("value")!!)
@@ -154,7 +149,6 @@ suspend fun Group.jsonMessage(json: JsonObject) = when (json.string("type")!!) {
     else -> PlainText("")
 }
 
-@ExperimentalStdlibApi
 suspend fun Group.jsonMessage(json: JsonArray<JsonObject>) =
     json.map { jsonMessage(it) } .asMessageChain()
 
@@ -164,4 +158,12 @@ fun fixRateTimer(start: Date, duration: Long, task: () -> Unit): Timer {
     val timer = Timer()
     timer.scheduleAtFixedRate(timerTask { task() }, Date.from(s), duration)
     return timer
+}
+
+suspend fun PipelineContext<Unit, ApplicationCall>.error(after: suspend () -> Unit) {
+    try {
+        after()
+    } catch (e: Exception) {
+        call.respondText(e.localizedMessage, status = HttpStatusCode.NotFound)
+    }
 }

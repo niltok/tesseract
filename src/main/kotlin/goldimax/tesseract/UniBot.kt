@@ -16,13 +16,10 @@ import net.mamoe.mirai.Bot as qqBot
 
 const val envName = "env"
 
-@ExperimentalStdlibApi
 object UniBot {
+    val env = File(envName).readLines()
 
-    val table = {
-        val env = File(envName).readLines()
-        SyncClient(env[0], env[1], env[2], env[3])
-    }()
+    val table = SyncClient(env[0], env[1], env[2], env[3])
 
     val tgToken = table.read("core", listOf("key" to "tg"))!!["token"]!!.asString()!!
 

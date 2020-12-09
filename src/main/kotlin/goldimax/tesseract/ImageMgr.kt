@@ -2,7 +2,6 @@ package goldimax.tesseract
 
 import java.util.*
 
-@ExperimentalStdlibApi
 object ImageMgr {
     operator fun get(id: UUID): ByteArray? =
         UniBot.table.read("image", listOf("id" to id.toString()))?.get("image")?.asBinary()

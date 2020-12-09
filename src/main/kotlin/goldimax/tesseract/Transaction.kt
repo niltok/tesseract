@@ -1,49 +1,107 @@
 package goldimax.tesseract
 
-import net.mamoe.mirai.event.subscribeGroupMessages
+import com.elbekD.bot.types.Message
 import net.mamoe.mirai.event.subscribeMessages
-import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.*
 import java.time.Duration
 import java.util.*
 
-@ExperimentalStdlibApi
-interface Transaction {
+interface QQTransaction {
     suspend fun handle(id: UUID, message: MessageEvent)
 }
 
-@ExperimentalStdlibApi
-object TransactionManager {
-    data class ActionData(val id: UUID, val time: Date, val action: Transaction)
-    private val transactions = mutableListOf<ActionData>()
+interface TGTransaction {
+    fun handle(id: UUID, message: Message)
+}
 
-    data class AttachData(val id: UUID, val time: Date, val ms: MessageSource)
-    private val attached = mutableListOf<AttachData>()
+interface TGKeys {
+    fun handle(id: UUID, msg: String, message: Message)
+}
+
+object TransactionManager {
+    data class QQActionData(val id: UUID, val time: Date, val action: QQTransaction)
+    private val qqTransactions = mutableListOf<QQActionData>()
+
+    data class QQAttachData(val id: UUID, val time: Date, val ms: MessageSource)
+    private val qqAttached = mutableListOf<QQAttachData>()
+
+    data class TGActionData(val id: UUID, val time: Date, val action: TGTransaction)
+    private val tgTransactions = mutableListOf<TGActionData>()
+
+    data class TGAttachData(val id: UUID, val time: Date, val msg: Int)
+    private val tgAttached = mutableListOf<TGAttachData>()
+
+    data class TGKActionData(val id: UUID, val time: Date, val action: TGKeys)
+    private val tgKeys = mutableListOf<TGKActionData>()
+
+    data class TGKAttachData(val id: UUID, val time: Date, val msg: Int)
+    private val tgKAttached = mutableListOf<TGKAttachData>()
 
     private fun update() {
-        while (transactions.isNotEmpty() &&
-            transactions.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
-            transactions.removeFirst()
+        while (qqTransactions.isNotEmpty() &&
+            qqTransactions.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            qqTransactions.removeFirst()
         }
-        while (attached.isNotEmpty() &&
-            attached.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
-            attached.removeFirst()
+        while (qqAttached.isNotEmpty() &&
+            qqAttached.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            qqAttached.removeFirst()
+        }
+        while (tgTransactions.isNotEmpty() &&
+            tgTransactions.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            tgTransactions.removeFirst()
+        }
+        while (tgAttached.isNotEmpty() &&
+            tgAttached.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            tgAttached.removeFirst()
+        }
+        while (tgKeys.isNotEmpty() &&
+            tgKeys.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            tgKeys.removeFirst()
+        }
+        while (tgKAttached.isNotEmpty() &&
+            tgKAttached.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            tgKAttached.removeFirst()
         }
     }
 
-    fun insert(t: Transaction): UUID {
+    fun insert(t: QQTransaction): UUID {
         val id = UUID.randomUUID()!!
-        transactions.add(ActionData(id, Date(), t))
+        qqTransactions.add(QQActionData(id, Date(), t))
+        return id
+    }
+
+    fun insert(t: TGTransaction): UUID {
+        val id = UUID.randomUUID()!!
+        tgTransactions.add(TGActionData(id, Date(), t))
+        return id
+    }
+
+    fun insert(t: TGKeys): UUID {
+        val id = UUID.randomUUID()!!
+        tgKeys.add(TGKActionData(id, Date(), t))
         return id
     }
 
     fun remove(id: UUID) {
-        transactions.removeIf { it.id == id }
+        qqTransactions.removeIf { it.id == id }
+        qqAttached.removeIf { it.id == id }
+        tgTransactions.removeIf { it.id == id }
+        tgAttached.removeIf { it.id == id }
+        tgKeys.removeIf { it.id == id }
+        tgKAttached.removeIf { it.id == id }
     }
 
     fun attach(ms: MessageSource, id: UUID) {
-        attached.add(AttachData(id, Date(), ms))
+        qqAttached.add(QQAttachData(id, Date(), ms))
+    }
+
+    fun attach(msg: Int, id: UUID) {
+        tgAttached.add(TGAttachData(id, Date(), msg))
+    }
+
+    fun attachK(msg: Int, id: UUID) {
+        tgKAttached.add(TGKAttachData(id, Date(), msg))
     }
 
     init {
@@ -51,13 +109,42 @@ object TransactionManager {
             startsWith("") {
                 error {
                     update()
-                    val at = message[QuoteReply] ?: return@startsWith
-                    val id = attached.firstOrNull { it.ms eq at.source }?.id ?: return@startsWith
-                    val ta = transactions.firstOrNull { it.id == id }?.action
+                    val at = message[QuoteReply]?.source ?: return@startsWith
+                    val id = qqAttached.firstOrNull { it.ms eq at }?.id ?: return@startsWith
+                    val ta = qqTransactions.firstOrNull { it.id == id }?.action
                     if (ta == null) quoteReply("Transaction expired.")
                     else ta.handle(id, this)
                 }
             }
         }
+
+        with(UniBot.tg) {
+            UniBot.tgListener.add { msg ->
+                error(msg) {
+                    update()
+                    val at = msg.reply_to_message?.message_id ?: return@add
+                    val id = tgAttached.firstOrNull { it.msg == at }?.id ?: return@add
+                    val ta = tgTransactions.firstOrNull { it.id == id }?.action
+                    if (ta == null) sendMessage(msg.chat.id, "Transaction expired.")
+                    else ta.handle(id, msg)
+                }
+            }
+            onCallbackQuery {
+                it.data?.let { data ->
+                    it.message?.let { msg ->
+                        error(msg) {
+                            update()
+                            val at = msg.message_id
+                            val id = tgKAttached.firstOrNull { it.msg == at }?.id
+                                ?: return@onCallbackQuery
+                            val ta = tgKeys.firstOrNull { it.id == id }?.action
+                            checkNotNull(ta) { "Transaction expired." }
+                            ta.handle(id, data, msg)
+                        }
+                    }
+                }
+            }
+        }
+
     }
 }

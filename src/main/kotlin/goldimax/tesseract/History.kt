@@ -4,7 +4,6 @@ import net.mamoe.mirai.message.data.MessageSource
 import java.time.Duration
 import java.util.*
 
-@ExperimentalStdlibApi
 object History {
     private data class Msg(val qqID: MessageSource, val tgID: Int, val time: Date = Date())
 

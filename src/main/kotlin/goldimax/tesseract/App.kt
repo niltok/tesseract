@@ -3,14 +3,12 @@ package goldimax.tesseract
 import kotlinx.coroutines.runBlocking
 import org.apache.log4j.BasicConfigurator
 
-@ExperimentalStdlibApi
 fun main() = runBlocking {
     // Log4j configure
     BasicConfigurator.configure()
 
     // Load Plugin
     UniBot
-    TransactionManager
     QQOther
     TgOther
     Forward
@@ -19,6 +17,8 @@ fun main() = runBlocking {
     Reminder
     Alarm
     Markov
+
+    WebServer
 
     UniBot.start()
 }

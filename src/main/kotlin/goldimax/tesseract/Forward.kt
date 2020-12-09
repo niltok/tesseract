@@ -17,7 +17,6 @@ import javax.imageio.ImageIO
 fun extractRichMessage(content: String): List<Element> =
     Jsoup.parse(content, "", Parser.xmlParser()).select("title").toList()
 
-@ExperimentalStdlibApi
 object Forward {
     private val logger: Logger = LogManager.getLogger(this.javaClass)
     val forward: () -> Unit = {
@@ -88,7 +87,9 @@ object Forward {
             val qGroup = UniBot.qq.groups[qq]
 
 
-            val msgs = mutableListOf<Message>(PlainText((msg.displayName() + ": ")))
+            val msgs = mutableListOf<Message>(PlainText((msg.displayName() + msg.forward_from.let {
+                it?.let { "[Forwarded from ${it.first_name} ${it.last_name.orEmpty()}]" } ?: ""
+            } + ": ")))
 
             msg.reply_to_message?.let {
                 val id = History.getQQ(it.message_id)
@@ -133,6 +134,7 @@ object Forward {
         }
 
         UniBot.tgListener.add(handleTg)
+        UniBot.tg.onEditedMessage(handleTg)
         UniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 
@@ -158,7 +160,7 @@ object Forward {
                 drive = false
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
-            onCommand("/MOD") { msg, _ -> sendMessage(msg.chat.id, drive.toString())}
+            onCommand("/is_drive") { msg, _ -> sendMessage(msg.chat.id, drive.toString())}
         }
     }
 

@@ -1,6 +1,7 @@
 import java.util.*
 import java.text.*
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import com.github.jengelman.gradle.plugins.shadow.tasks.*
 
 plugins {
     java
@@ -33,6 +34,7 @@ dependencies {
     implementation(fileTree("src/main/resources/libs"))
     implementation("org.jsoup:jsoup:1.13.1")
     implementation("com.aliyun.openservices", "tablestore", "5.4.0")
+    implementation("io.ktor:ktor-server-netty:1.4.0")
     testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 
@@ -62,7 +64,7 @@ tasks.withType<Jar> {
     }
 }
 
-val shadowJar: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar by tasks
+val shadowJar: ShadowJar by tasks
 shadowJar.apply {
     manifest {
         attributes["Main-Class"] = MAIN_CLASS

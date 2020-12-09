@@ -4,7 +4,7 @@ import com.beust.klaxon.JsonArray
 
 inline class QQUser(val id: Long)
 inline class TGUser(val id: Long)
-@ExperimentalStdlibApi
+
 object SUManager {
     private val raw = UniBot.table.read("core", listOf("key" to "sumgr"))!!
     val qqAdmin = raw["qq"]!!.asString().split(",")

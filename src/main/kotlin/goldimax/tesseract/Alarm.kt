@@ -11,8 +11,7 @@ import net.mamoe.mirai.message.data.*
 import java.time.Duration
 import java.util.*
 
-@ExperimentalStdlibApi
-class AlarmTransaction(private val group: Long): Transaction {
+class AlarmQQTransaction(private val group: Long): QQTransaction {
     var state = 0
     var time: Calendar = Calendar.getInstance()
     var duration: Duration = Duration.ofDays(1)
@@ -63,7 +62,6 @@ class AlarmTransaction(private val group: Long): Transaction {
     }
 }
 
-@ExperimentalStdlibApi
 object Alarm {
     data class AlarmData(val id: UUID, val time: Date, val duration: Long,
                          val group: Long, val msg: JsonArray<JsonObject>, val timer: Timer)
@@ -95,7 +93,7 @@ object Alarm {
         UniBot.qq.subscribeGroupMessages {
             case("new alarm") {
                 error {
-                    val id = TransactionManager.insert(AlarmTransaction(source.group.id))
+                    val id = TransactionManager.insert(AlarmQQTransaction(source.group.id))
                     val mr = quoteReply(
                         "Alarm creating...\n" +
                                 "Reply this message to set start time,\n" +

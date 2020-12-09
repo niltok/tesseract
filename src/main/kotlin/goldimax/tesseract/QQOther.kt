@@ -7,7 +7,6 @@ import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.*
 import java.net.URL
 
-@ExperimentalStdlibApi
 object QQOther {
     init {
         val qq = UniBot.qq
@@ -45,11 +44,21 @@ object QQOther {
                         URL("https://v1.hitokoto.cn/")
                             .openStream()
                     ) as JsonObject
-                    reply("「${json.string("hitokoto")}」 —— ${json.string("from")}")
+                    reply("「${
+                        json.string("hitokoto")}」 —— ${
+                        json.string("from")}")
                 }
             }
             case("kiss me") quoteReply (Face(Face.qinqin))
             case("mention all") reply (AtAll)
+            case("reboot!!") {
+                error {
+                    testSu()
+                    reply("Trying to reboot...")
+                    Runtime.getRuntime().exec(
+                        "killall java; nohup java -jar rainbow.jar &")
+                }
+            }
         }
     }
 }

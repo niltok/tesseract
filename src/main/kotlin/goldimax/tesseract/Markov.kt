@@ -13,7 +13,6 @@ import java.lang.Math.random
 import java.lang.StringBuilder
 import kotlin.math.*
 
-@ExperimentalStdlibApi
 object Markov {
     private val rank = 3
     private val p: MutableMap<Long, Double> =
@@ -88,7 +87,7 @@ object Markov {
                     testSu()
                     p[source.group.id] = it.toDouble()
                     save()
-                    reply("Done.")
+                    quoteReply("Done.")
                 }
             }
             startsWith("") {
@@ -110,7 +109,7 @@ object Markov {
         UniBot.tgListener.add { s ->
             val text = s.text ?: ""
             train("$text。")
-            if (text.length < 3 || random() < (1.0 - (p[Connections.findQQByTG(s.chat.id)] ?: 0.0)))
+            if (text.length < 3 || random() < (1.0 - (p[s.chat.id] ?: 0.0)))
                 return@add
             val g = gen(text.drop(floor(random() * (text.length - rank)).toInt()).take(rank))
             if (g.first && g.second.length > rank) {
@@ -120,6 +119,31 @@ object Markov {
                     if (qq != null) History.insert(
                         UniBot.qq.getGroup(qq).sendMessage(g.second).source, t.message_id)
                 } }
+            }
+        }
+
+        UniBot.tg.run {
+            onCommand("/mp") { msg, cmd ->
+                error(msg) {
+                    testSu(msg)
+                    p[msg.chat.id] = cmd?.toDouble() ?: 0.0
+                    save()
+                    sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+                }
+            }
+
+            onCommand("/mk") { msg, cmd ->
+                error(msg) {
+                    val text = (cmd ?: "").removePrefix("Mk$")
+                    check(text.length >= 3) { "It's toooooo short." }
+                    val g = gen(
+                        text.drop(
+                            floor(random() * (text.length - rank))
+                                .toInt()
+                        ).take(rank)
+                    )
+                    sendMessage(msg.chat.id, (if (g.first) "✓|" else "✗|") + g.second)
+                }
             }
         }
     }

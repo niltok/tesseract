@@ -1,10 +1,12 @@
 package goldimax.tesseract
 
+import com.beust.klaxon.JsonObject
+import com.beust.klaxon.Parser
 import com.jcabi.manifests.Manifests
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
-@ExperimentalStdlibApi
 object TgOther {
     init {
         with(UniBot.tg) {
@@ -31,6 +33,27 @@ object TgOther {
                     testSu(msg)
 
                     Connections.connect.add(Connection(cmd!!.trim().toLong(), msg.chat.id))
+                    Connections.save()
+
+                    sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+                }
+            }
+
+            onCommand("/hitokoto") { msg, _ ->
+                val json = Parser.default().parse(
+                    URL("https://v1.hitokoto.cn/")
+                        .openStream()
+                ) as JsonObject
+                sendMessage(msg.chat.id, "「${
+                    json.string("hitokoto")}」 —— ${
+                    json.string("from")}")
+            }
+
+            onCommand("/disconnect") { msg, _ ->
+                error(msg) {
+                    testSu(msg)
+
+                    Connections.connect.removeIf { it.tg == msg.chat.id }
                     Connections.save()
 
                     sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)

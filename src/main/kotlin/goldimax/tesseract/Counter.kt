@@ -5,7 +5,6 @@ import com.beust.klaxon.JsonObject
 import net.mamoe.mirai.event.subscribeGroupMessages
 import java.io.File
 
-@ExperimentalStdlibApi
 object Counter {
     private val json: Map<String, List<Map<String, String>>> =
         getJson("core", "key", "counter", "json")
