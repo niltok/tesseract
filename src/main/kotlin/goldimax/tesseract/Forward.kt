@@ -78,7 +78,7 @@ object Forward {
 
         val handleTg: suspend (TGMsg) -> Unit = lambda@{ msg ->
             logger.debug("receive tg ${msg.text}")
-            if (drive) return@lambda
+            // if (drive) return@lambda
             val qq = Connections.findQQByTG(msg.chat.id)
             logger.info("transfering to ${msg.chat.id}")
             if (qq == null) {
@@ -138,7 +138,6 @@ object Forward {
         UniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 
-    var drive = false
     val manager = {
         UniBot.qq.subscribeGroupMessages {
 
@@ -153,14 +152,16 @@ object Forward {
 
         UniBot.tg.run {
             onCommand("/drive") { msg, _ ->
-                drive = true
-                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+                // drive = true
+                // sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
             onCommand("/park") { msg, _ ->
-                drive = false
-                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+                // drive = false
+                // sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
-            onCommand("/is_drive") { msg, _ -> sendMessage(msg.chat.id, drive.toString())}
+            onCommand("/is_drive") { msg, _ ->
+                // sendMessage(msg.chat.id, drive.toString())
+            }
         }
     }
 

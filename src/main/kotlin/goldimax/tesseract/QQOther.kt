@@ -3,6 +3,7 @@ package goldimax.tesseract
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Parser
 import com.jcabi.manifests.Manifests
+import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.*
 import java.net.URL
@@ -57,6 +58,18 @@ object QQOther {
                     reply("Trying to reboot...")
                     Runtime.getRuntime().exec(
                         "killall java; nohup java -jar rainbow.jar &")
+                }
+            }
+        }
+        qq.subscribeGroupMessages {
+            case("plz disconnect") {
+                error {
+                    testSu()
+
+                    Connections.connect.removeIf { it.qq == source.group.id }
+                    Connections.save()
+
+                    reply("Done.")
                 }
             }
         }

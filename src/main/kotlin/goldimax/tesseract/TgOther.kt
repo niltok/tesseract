@@ -70,6 +70,20 @@ object TgOther {
                     sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
                 }
             }
+
+
+
+            onCommand("/一言") { msg, cmd ->
+                error (msg) {
+                    val json = Parser.default().parse(
+                        URL("https://v1.hitokoto.cn/")
+                            .openStream()
+                    ) as JsonObject
+                    sendMessage(msg.chat.id, "「${
+                        json.string("hitokoto")}」 —— ${
+                        json.string("from")}")
+                }
+            }
         }
     }
 }
