@@ -1,15 +1,20 @@
 package goldimax.tesseract
 
+import com.beust.klaxon.JsonObject
+import com.beust.klaxon.Klaxon
+import net.mamoe.mirai.event.events.GroupMessageEvent
 import com.elbekD.bot.types.Message as TGMsg
 import net.mamoe.mirai.event.subscribeGroupMessages
-import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.data.*
-import net.mamoe.mirai.message.uploadImage
+import net.mamoe.mirai.message.data.Image.Key.queryUrl
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import org.apache.log4j.LogManager
 import org.apache.log4j.Logger
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Parser
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.lang.StringBuilder
 import java.net.URL
 import javax.imageio.ImageIO
@@ -19,6 +24,18 @@ fun extractRichMessage(content: String): List<Element> =
 
 object Forward {
     private val logger: Logger = LogManager.getLogger(this.javaClass)
+
+    private val drive: MutableMap<Long, Boolean> =
+        UniBot.table.read("core", listOf("key" to "forward"))
+            ?.get("drive")?.asString()?.let { Klaxon().parse<Map<String, Boolean>>(it)
+                ?.mapKeys { (k, _) -> k.toLong() } ?. toMutableMap() }
+            ?: mutableMapOf()
+
+    private fun save() {
+        UniBot.table.write("core", listOf("key" to "forward"),
+            listOf("drive" to cVal(JsonObject(drive.mapKeys { (k, _) -> k.toString() }).toJsonString())))
+    }
+
     val forward: () -> Unit = {
         val handleQQ: suspend GroupMessageEvent.(String) -> Unit = lambda@{
             val tGroup = Connections.findTGByQQ(subject.id)
@@ -34,18 +51,18 @@ object Forward {
                 logger.debug("forward qq $msg")
 
                 when (msg) {
-                    is FlashImage -> imgs.add(msg.image.url())
-                    is Image -> imgs.add(msg.url())
+                    is FlashImage -> imgs.add(msg.image.queryUrl())
+                    is Image -> imgs.add(msg.queryUrl())
                     else -> {
                         msgText.append(when (msg) {
                             is PlainText -> msg.content
-                            is At -> msg.display + " "
+                            is At -> msg.getDisplay(group) + " "
                             is AtAll -> AtAll.display + " "
                             is QuoteReply -> {
                                 reply = History.getTG(msg.source)
                                 if (reply == null)
                                     String.format("[Reply\uD83D\uDC46%s: %s]",
-                                        subject.members[msg.source.fromId].displayName(),
+                                        subject.members[msg.source.fromId]?.displayName(),
                                         msg.source.originalMessage.contentToString())
                                 else ""
                             }
@@ -78,13 +95,13 @@ object Forward {
 
         val handleTg: suspend (TGMsg) -> Unit = lambda@{ msg ->
             logger.debug("receive tg ${msg.text}")
-            // if (drive) return@lambda
+            if (drive[msg.chat.id] == true) return@lambda
             val qq = Connections.findQQByTG(msg.chat.id)
             logger.info("transfering to ${msg.chat.id}")
             if (qq == null) {
                 return@lambda
             }
-            val qGroup = UniBot.qq.groups[qq]
+            val qGroup = UniBot.qq.groups[qq] ?: return@lambda
 
 
             val msgs = mutableListOf<Message>(PlainText((msg.displayName() + msg.forward_from.let {
@@ -107,8 +124,8 @@ object Forward {
 
             // Usually, it hold a thumbnail and a original image, get the original image(the bigger one)
             msg.photo?.maxByOrNull { it.file_size }?.let {
-                val image = ImageIO.read(URL(tgFileUrl(it.file_id)).openStream())
-                msgs.add(qGroup.uploadImage(image))
+                val image = URL(tgFileUrl(it.file_id)).openStream().uploadAsImage(qGroup)
+                msgs.add(image)
             }
 
             msg.sticker?.let {
@@ -117,17 +134,19 @@ object Forward {
                     // TODO: Support .tgs format animated sticker
                     msgs.add(PlainText(" Unsupported .tgs format animated sticker"))
                 } else {
-                    val image = ImageIO.read(URL(filePath).openStream())
-                    msgs.add(qGroup.uploadImage(image))
+                    val output = ByteArrayOutputStream()
+                    ImageIO.write(ImageIO.read(URL(filePath).openStream()), "png", output)
+                    val image = ByteArrayInputStream(output.toByteArray()).uploadAsImage(qGroup)
+                    msgs.add(image)
                 }
             }
 
             msg.animation?.let {
-                val image = ImageIO.read(URL(tgFileUrl(it.file_id)).openStream())
-                msgs.add(qGroup.uploadImage(image))
+                val image = URL(tgFileUrl(it.file_id)).openStream().uploadAsImage(qGroup)
+                msgs.add(image)
             }
 
-            val qid = qGroup.sendMessage(msgs.asMessageChain()).source
+            val qid = qGroup.sendMessage(msgs.toMessageChain()).source
             History.insert(qid, msg.message_id)
 
             Unit
@@ -135,11 +154,11 @@ object Forward {
 
         UniBot.tgListener.add(handleTg)
         UniBot.tg.onEditedMessage(handleTg)
-        UniBot.qq.subscribeGroupMessages { contains("", onEvent = handleQQ) }
+        UniBot.qq.eventChannel.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 
     val manager = {
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
 
             startsWith("QQIMG", true) {
                 quoteReply(Image(it.trim()))
@@ -152,15 +171,17 @@ object Forward {
 
         UniBot.tg.run {
             onCommand("/drive") { msg, _ ->
-                // drive = true
-                // sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+                drive[msg.chat.id] = true
+                save()
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
             onCommand("/park") { msg, _ ->
-                // drive = false
-                // sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
+                drive[msg.chat.id] = false
+                save()
+                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
             onCommand("/is_drive") { msg, _ ->
-                // sendMessage(msg.chat.id, drive.toString())
+                sendMessage(msg.chat.id, drive[msg.chat.id].toString())
             }
         }
     }

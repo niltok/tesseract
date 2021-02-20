@@ -1,10 +1,11 @@
 package goldimax.tesseract
 
 import com.beust.klaxon.JsonObject
+import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
-import net.mamoe.mirai.message.GroupMessageEvent
 import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.PlainText
+import net.mamoe.mirai.message.data.firstIsInstanceOrNull
 import java.io.File
 import java.time.Duration
 import java.time.Instant
@@ -39,7 +40,7 @@ object Reminder {
 
     private suspend fun GroupMessageEvent.setReminder(prefix: String, duration: Duration) {
         error {
-            val at = message[At]
+            val at = message.firstIsInstanceOrNull<At>()
             val id = if (at == null) {
                 sender.id
             } else {
@@ -48,7 +49,7 @@ object Reminder {
             }
             if (reminders[source.group.id] == null)
                 reminders[source.group.id] = mutableMapOf()
-            val content = message[PlainText].toString().removePrefix(prefix).trim()
+            val content = message.plainText().removePrefix(prefix).trim()
             reminders[source.group.id]!![id] = Remind(content, duration)
             save()
             quoteReply("Done.")
@@ -56,7 +57,7 @@ object Reminder {
     }
 
     init {
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
             case("remove reminder") {
                 reminders[source.group.id]?.remove(sender.id)
                 save()

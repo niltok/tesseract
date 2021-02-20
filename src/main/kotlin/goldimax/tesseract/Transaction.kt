@@ -1,8 +1,8 @@
 package goldimax.tesseract
 
 import com.elbekD.bot.types.Message
+import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeMessages
-import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.*
 import java.time.Duration
 import java.util.*
@@ -105,7 +105,7 @@ object TransactionManager {
     }
 
     init {
-        UniBot.qq.subscribeMessages {
+        UniBot.qq.eventChannel.subscribeMessages {
             startsWith("") {
                 error {
                     update()

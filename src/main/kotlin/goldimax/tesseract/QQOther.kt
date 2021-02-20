@@ -11,7 +11,7 @@ import java.net.URL
 object QQOther {
     init {
         val qq = UniBot.qq
-        qq.subscribeMessages {
+        qq.eventChannel.subscribeMessages {
             case("rainbow") {
                 val info = """
                 Copy. I am online.${""/*Your ID is ${sender.id}.*/}
@@ -24,8 +24,8 @@ object QQOther {
                 error {
                     testSu()
 
-                    val id = message[PlainText].toString().removePrefix("plz add su").trim().let {
-                        if (it.isEmpty()) message[At]!!.target
+                    val id = message.plainText().removePrefix("plz add su").trim().let {
+                        if (it.isEmpty()) message.firstIsInstance<At>().target
                         else it.toLong()
                     }
                     SUManager.qqAdmin.add(id)
@@ -35,7 +35,7 @@ object QQOther {
             }
             startsWith("is su") {
                 error {
-                    if (SUManager.isSuperuser(QQUser(message[At]!!.target))) quoteReply("Yes.")
+                    if (SUManager.isSuperuser(QQUser(message.firstIsInstance<At>().target))) quoteReply("Yes.")
                     else quoteReply("No.")
                 }
             }
@@ -50,7 +50,7 @@ object QQOther {
                         json.string("from")}")
                 }
             }
-            case("kiss me") quoteReply (Face(Face.qinqin))
+            case("kiss me") quoteReply (Face(Face.亲亲))
             case("mention all") reply (AtAll)
             case("reboot!!") {
                 error {
@@ -61,7 +61,7 @@ object QQOther {
                 }
             }
         }
-        qq.subscribeGroupMessages {
+        qq.eventChannel.subscribeGroupMessages {
             case("plz disconnect") {
                 error {
                     testSu()

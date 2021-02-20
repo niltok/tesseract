@@ -12,14 +12,15 @@ import io.ktor.response.*
 import io.ktor.util.pipeline.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import net.mamoe.mirai.LowLevelAPI
 import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.Member
-import net.mamoe.mirai.message.MessageEvent
+import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.event.events.MessageEvent
+import net.mamoe.mirai.message.data.Message as QMsg
 import net.mamoe.mirai.message.data.*
-import net.mamoe.mirai.message.data.At.Key._lowLevelConstructAtInstance
-import net.mamoe.mirai.message.uploadImage
+import net.mamoe.mirai.message.data.Image.Key.queryUrl
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import java.io.File
 import java.lang.StringBuilder
 import java.net.URL
@@ -46,8 +47,42 @@ fun String.or(string: String) = if (isNullOrBlank()) string else this
 fun <T> checkNull(x: T?, msg: () -> Any) =
     check(x == null, msg)
 
+fun QMsg.plainText() = this.toMessageChain().filterIsInstance<PlainText>().joinToString { it.content }
+
+suspend fun GroupMessageEvent.reply(msg: QMsg) =
+     group.sendMessage(msg)
+
+suspend fun GroupMessageEvent.reply(msg: String) =
+    group.sendMessage(msg)
+
+suspend fun GroupMessageEvent.quoteReply(msg: QMsg) =
+    group.sendMessage(QuoteReply(source) + msg)
+
+suspend fun GroupMessageEvent.quoteReply(msg: String) =
+    quoteReply(msg.toPlainText())
+
+suspend fun MessageEvent.reply(msg: QMsg) =
+    if (this is GroupMessageEvent) group.sendMessage(msg)
+    else sender.sendMessage(msg)
+
+suspend fun MessageEvent.reply(msg: String) =
+    reply(msg.toPlainText())
+
+suspend fun MessageEvent.quoteReply(msg: QMsg) =
+    if (this is GroupMessageEvent) group.sendMessage(QuoteReply(source) + msg)
+    else sender.sendMessage(QuoteReply(source) + msg)
+
+suspend fun MessageEvent.quoteReply(msg: String) =
+    quoteReply(msg.toPlainText())
+
 // qq
 suspend inline fun MessageEvent.error(after: () -> Unit) = try {
+    after()
+} catch (e: Exception) {
+    reply(e.localizedMessage)
+}
+
+suspend inline fun GroupMessageEvent.error(after: () -> Unit) = try {
     after()
 } catch (e: Exception) {
     reply(e.localizedMessage)
@@ -125,9 +160,10 @@ fun cVal(v: ByteArray) = ColumnValue.fromBinary(v)
 
 operator fun Row.get(key: String) = getColumn(key).firstOrNull() ?. value
 
-infix fun MessageSource.eq(ms: MessageSource) = id == ms.id
-        && internalId == ms.internalId
-        && fromId == ms.fromId
+infix fun MessageSource.eq(ms: MessageSource) =
+    ids.contentEquals(ms.ids) &&
+            fromId == ms.fromId &&
+            targetId == ms.targetId
 
 suspend fun SingleMessage.toJson() = when (this) {
     is At -> JsonObject(mapOf("type" to "at", "value" to target))
@@ -142,15 +178,15 @@ suspend fun List<SingleMessage>.toJson() =
     JsonArray(this.map { it.toJson() })
 
 suspend fun Group.jsonMessage(json: JsonObject) = when (json.string("type")!!) {
-    "at" -> At(this[json.long("value")!!])
+    "at" -> this[json.long("value")!!]?.let { At(it) } ?: "@${json.long("value")}".toPlainText()
     "face" -> Face(json.int("value")!!)
-    "image" -> uploadImage(ImageMgr.get(UUID.fromString(json.string("value")!!))!!.inputStream())
+    "image" -> ImageMgr.get(UUID.fromString(json.string("value")!!))!!.inputStream().uploadAsImage(this)
     "text" -> PlainText(json.string("value")!!)
     else -> PlainText("")
 }
 
 suspend fun Group.jsonMessage(json: JsonArray<JsonObject>) =
-    json.map { jsonMessage(it) } .asMessageChain()
+    json.map { jsonMessage(it) } .toMessageChain()
 
 fun fixRateTimer(start: Date, duration: Long, task: () -> Unit): Timer {
     var s = start.toInstant()

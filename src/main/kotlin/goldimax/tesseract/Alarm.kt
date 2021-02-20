@@ -5,8 +5,8 @@ import com.beust.klaxon.JsonObject
 import io.ktor.util.InternalAPI
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
-import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.*
 import java.time.Duration
 import java.util.*
@@ -19,7 +19,7 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
     override suspend fun handle(id: UUID, message: MessageEvent) {
         when (state) {
             0 -> message.error {
-                val value = message.message[PlainText]!!.content.trim()
+                val value = message.message.plainText().trim()
                     .split(" ").filter { it.isNotBlank() }.map { it.trim().toInt() }
                 time = Calendar.getInstance()
                 time.add(Calendar.DATE, value[0])
@@ -33,7 +33,7 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
                 TransactionManager.attach(mr.source, id)
             }
             1 -> message.error {
-                val value = message.message[PlainText]!!.content.trim()
+                val value = message.message.plainText().trim()
                     .split(" ").filter { it.isNotBlank() }.map { it.trim().toLong() }
                 check(value[0] > 0) { "no attack." }
                 duration = Duration.ofHours(value[0]) + Duration.ofMinutes(value[1])
@@ -47,7 +47,7 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
                     it is PlainText || it is Image || it is Face ||
                             it is At && it.target != UniBot.qq.id }
                 val timer = fixRateTimer(time.time, duration.toMillis()) {
-                    GlobalScope.launch { message.reply(msg.asMessageChain()) }
+                    GlobalScope.launch { message.reply(msg.toMessageChain()) }
                 }
                 val timerID = UUID.randomUUID()
                 val data = Alarm.AlarmData(timerID, time.time, duration.toMillis(),
@@ -75,7 +75,7 @@ object Alarm {
             val msg = it.array<JsonObject>("msg")!!
             val timer = fixRateTimer(time, duration) {
                 GlobalScope.launch {
-                    val g = UniBot.qq.getGroup(group)
+                    val g = UniBot.qq.getGroup(group) ?: return@launch
                     g.sendMessage(g.jsonMessage(msg))
                 }
             }
@@ -90,7 +90,7 @@ object Alarm {
     }
     init {
         save()
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
             case("new alarm") {
                 error {
                     val id = TransactionManager.insert(AlarmQQTransaction(source.group.id))

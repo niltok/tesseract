@@ -22,7 +22,7 @@ object Counter {
     }
 
     init {
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
             startsWith("") {
                 dic[source.group.id]?.run {
                     forEach { (reg, v) ->
@@ -35,7 +35,7 @@ object Counter {
             }
         }
 
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
             case("counter info") {
                 error {
                     val entry = dic[source.group.id]

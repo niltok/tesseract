@@ -19,7 +19,6 @@ object History {
     fun insert(qqID: MessageSource, tgID: Int) {
         update()
         timeTable.add(Msg(qqID, tgID))
-        println("add ${qqID.id} $tgID")
     }
 
     fun getTG(id: MessageSource): Int? {
@@ -29,7 +28,6 @@ object History {
 
     fun getQQ(id: Int): MessageSource? {
         update()
-        println(timeTable)
         return timeTable.firstOrNull { it.tgID == id }?.qqID
     }
 }

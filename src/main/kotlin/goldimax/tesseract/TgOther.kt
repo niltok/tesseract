@@ -21,7 +21,8 @@ object TgOther {
                     msg.chat.id,
                     """
             Copy. I am online.
-            You are ${msg.from?.id}.
+            You are ${msg.from!!.id}.
+            You are${if (SUManager.isSuperuser(TGUser(msg.from!!.id.toLong()))) "" else " not"} superuser.
             Here is ${msg.chat.id}.
             Build: $version
             """.trimIndent()
@@ -68,20 +69,6 @@ object TgOther {
                     SUManager.save()
 
                     sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-                }
-            }
-
-
-
-            onCommand("/一言") { msg, cmd ->
-                error (msg) {
-                    val json = Parser.default().parse(
-                        URL("https://v1.hitokoto.cn/")
-                            .openStream()
-                    ) as JsonObject
-                    sendMessage(msg.chat.id, "「${
-                        json.string("hitokoto")}」 —— ${
-                        json.string("from")}")
                 }
             }
         }

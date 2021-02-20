@@ -7,13 +7,14 @@ import com.elbekD.bot.types.InlineKeyboardMarkup
 import com.elbekD.bot.types.Message
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import net.mamoe.mirai.contact.Contact.Companion.sendImage
+import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
-import net.mamoe.mirai.message.GroupMessageEvent
-import net.mamoe.mirai.message.MessageEvent
 import net.mamoe.mirai.message.data.Image
+import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.message.data.PlainText
-import net.mamoe.mirai.message.data.queryUrl
-import net.mamoe.mirai.message.sendImage
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import org.apache.log4j.LogManager.getLogger
 import java.io.File
 import java.net.URL
@@ -29,7 +30,7 @@ object Picture {
     ): QQTransaction {
         var page = 0
         override suspend fun handle(id: UUID, message: MessageEvent) {
-            val cmd = message.message[PlainText]?.contentToString()?.trim()
+            val cmd = message.message.plainText().trim()
             checkNotNull(cmd) { "Enter 'next', 'prev' or page num." }
             when (cmd) {
                 "next" -> {
@@ -100,7 +101,7 @@ object Picture {
         error {
             testSu()
 
-            val picName = (message[PlainText]?.toString() ?: "").removePrefix("plz forget").trim()
+            val picName = message.plainText().removePrefix("plz forget").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
             dic[source.group.id]?.let { dic ->
                 checkNotNull(dic[picName]) { "Cannot find picture called $picName" }
@@ -114,7 +115,7 @@ object Picture {
 
     private fun handleSearch(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
-            val picName = (message[PlainText]?.toString() ?: "")
+            val picName = message.plainText()
                 .removePrefix("look up").trim().toRegex()
             val list = mutableListOf<String>()
             dic[source.group.id]?.let { dic ->
@@ -138,12 +139,12 @@ object Picture {
 
     private fun handleReq(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
-            val picName = (message[PlainText]?.toString() ?: "").removePrefix("say").trim()
+            val picName = message.plainText().removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
             val reg = picName.toRegex()
             val maybe = dic[source.group.id]?.filter { it.key.contains(reg) }?.values?.randomOrNull()
             checkNotNull(maybe) { "Cannot find picture called $picName." }
-            val img = uploadImage(ImageMgr[UUID.fromString(maybe)]!!.inputStream())
+            val img = ImageMgr[UUID.fromString(maybe)]!!.inputStream().uploadAsImage(group)
             val qid = reply(img).source
             Connections.findTGByQQ(subject.id)?.let {
                 UniBot.tg.sendPhoto(it, img.queryUrl())
@@ -154,7 +155,7 @@ object Picture {
 
     private fun handleAdd(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
-            val picName = (message[PlainText]?.toString() ?: "").removePrefix("remember").trim()
+            val picName = message.plainText().removePrefix("remember").trim()
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
             checkNull(dic[source.group.id]
                 ?.get(picName)) { "There is already a picture called $picName." }
@@ -171,10 +172,10 @@ object Picture {
     }
 
     private fun handleImReq(): suspend GroupMessageEvent.(String) -> Unit = {
-        val picName = (message[PlainText]?.toString() ?: "").trim()
+        val picName = message.plainText().trim()
         val maybe = dic[source.group.id]?.get(picName)
         if (maybe != null) {
-            val img = uploadImage(ImageMgr[UUID.fromString(maybe)]!!.inputStream())
+            val img = ImageMgr[UUID.fromString(maybe)]!!.inputStream().uploadAsImage(group)
             val qid = reply(img).source
             Connections.findTGByQQ(subject.id)?.let {
                 UniBot.tg.sendPhoto(it, img.queryUrl())
@@ -184,7 +185,7 @@ object Picture {
     }
 
     init {
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
             startsWith("remember", onEvent = handleAdd())
             startsWith("say", onEvent = handleReq())
             startsWith("look up", onEvent = handleSearch())
@@ -215,7 +216,8 @@ object Picture {
                     sendPhoto(msg.chat.id, temp).whenComplete { t, _ ->
                         val qq = Connections.findQQByTG(msg.chat.id)
                         if (qq != null) GlobalScope.launch {
-                            History.insert(UniBot.qq.getGroup(qq).sendImage(temp).source, t.message_id)
+                            val qGroup = UniBot.qq.getGroup(qq)
+                            if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t.message_id)
                             temp.delete()
                         } else temp.delete()
                     }
@@ -233,7 +235,8 @@ object Picture {
                 sendPhoto(it.chat.id, temp).whenComplete { t, _ ->
                     val qq = Connections.findQQByTG(it.chat.id)
                     if (qq != null) GlobalScope.launch {
-                        History.insert(UniBot.qq.getGroup(qq).sendImage(temp).source, t.message_id)
+                        val qGroup = UniBot.qq.getGroup(qq)
+                        if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t.message_id)
                         temp.delete()
                     } else temp.delete()
                 }

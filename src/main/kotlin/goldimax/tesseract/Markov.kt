@@ -67,14 +67,14 @@ object Markov {
     }
 
     init {
-        UniBot.qq.subscribeGroupMessages {
+        UniBot.qq.eventChannel.subscribeGroupMessages {
             startsWith("PREFIX$", true) {
                 error { reply("#" +
                         (getRoll(it.take(3))?.get(it.drop(3))?.toString() ?: "null")) }
             }
             startsWith("Mk$") {
                 error {
-                    val text = (message[PlainText]?.toString() ?: "").removePrefix("Mk$")
+                    val text = message.plainText().removePrefix("Mk$")
                     check(text.length >= 3) { "It's toooooo short." }
                     val g = gen(text.drop(floor(random() * (text.length - rank))
                          .toInt()).take(rank))
@@ -91,7 +91,7 @@ object Markov {
                 }
             }
             startsWith("") {
-                val text = message[PlainText]?.content?.plus("。") ?: ""
+                val text = message.plainText().plus("。")
                 train(text)
                 if (text.length < 3 || random() < (1.0 - (p[source.group.id] ?: 0.0))) return@startsWith
                 val g = gen(text.drop(floor(random() * (text.length - rank))
@@ -115,10 +115,11 @@ object Markov {
             if (g.first && g.second.length > rank) {
                 UniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
                     GlobalScope.launch {
-                    val qq = Connections.findQQByTG(s.chat.id)
-                    if (qq != null) History.insert(
-                        UniBot.qq.getGroup(qq).sendMessage(g.second).source, t.message_id)
-                } }
+                        val qq = Connections.findQQByTG(s.chat.id) ?: return@launch
+                        val qGroup = UniBot.qq.getGroup(qq) ?: return@launch
+                        History.insert(qGroup.sendMessage(g.second).source, t.message_id)
+                    }
+                }
             }
         }
 
