@@ -148,7 +148,7 @@ object Picture {
             val qid = reply(img).source
             Connections.findTGByQQ(subject.id)?.let {
                 UniBot.tg.sendPhoto(it, img.queryUrl())
-                    .whenComplete { t, _ -> History.insert(qid, t.message_id) }
+                    .whenComplete { t, _ -> History.insert(qid, t) }
             }
         }
     }
@@ -179,7 +179,7 @@ object Picture {
             val qid = reply(img).source
             Connections.findTGByQQ(subject.id)?.let {
                 UniBot.tg.sendPhoto(it, img.queryUrl())
-                    .whenComplete { t, _ -> History.insert(qid, t.message_id) }
+                    .whenComplete { t, _ -> History.insert(qid, t) }
             }
         }
     }
@@ -217,7 +217,7 @@ object Picture {
                         val qq = Connections.findQQByTG(msg.chat.id)
                         if (qq != null) GlobalScope.launch {
                             val qGroup = UniBot.qq.getGroup(qq)
-                            if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t.message_id)
+                            if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t)
                             temp.delete()
                         } else temp.delete()
                     }
@@ -236,7 +236,7 @@ object Picture {
                     val qq = Connections.findQQByTG(it.chat.id)
                     if (qq != null) GlobalScope.launch {
                         val qGroup = UniBot.qq.getGroup(qq)
-                        if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t.message_id)
+                        if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t)
                         temp.delete()
                     } else temp.delete()
                 }

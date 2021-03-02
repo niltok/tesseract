@@ -44,52 +44,59 @@ object Forward {
                 return@lambda
             }
 
-            val msgText = StringBuilder()
             var reply: Int? = null
             val imgs = mutableListOf<String>()
-            message.forEach { msg ->
-                logger.debug("forward qq $msg")
-
-                when (msg) {
-                    is FlashImage -> imgs.add(msg.image.queryUrl())
-                    is Image -> imgs.add(msg.queryUrl())
-                    else -> {
-                        msgText.append(when (msg) {
-                            is PlainText -> msg.content
-                            is At -> msg.getDisplay(group) + " "
-                            is AtAll -> AtAll.display + " "
-                            is QuoteReply -> {
-                                reply = History.getTG(msg.source)
-                                if (reply == null)
-                                    String.format("[Reply\uD83D\uDC46%s: %s]",
-                                        subject.members[msg.source.fromId]?.displayName(),
-                                        msg.source.originalMessage.contentToString())
-                                else ""
-                            }
-                            is Face -> msg.contentToString()
-                            is ForwardMessage -> "[Forward] {\n ${msg.nodeList.joinToString("\n")} }"
-                            is RichMessage ->
-                                "[XML] { ${extractRichMessage(msg.content)
-                                    .joinToString("\n", transform = Element::text)} }"
-                            else -> msg.contentToString()
-                        })
+            suspend fun parseMsg(message: MessageChain): String {
+                val msgText = StringBuilder()
+                message.forEach { msg ->
+                    when (msg) {
+                        is FlashImage -> imgs.add(msg.image.queryUrl())
+                        is Image -> imgs.add(msg.queryUrl())
+                        else -> {
+                            msgText.append(
+                                when (msg) {
+                                    is PlainText -> msg.content
+                                    is At -> msg.getDisplay(group) + " "
+                                    is AtAll -> AtAll.display + " "
+                                    is QuoteReply -> {
+                                        reply = History.getTG(msg.source)
+                                        if (reply == null)
+                                            String.format(
+                                                "[Reply\uD83D\uDC46%s: %s]",
+                                                subject.members[msg.source.fromId]?.displayName(),
+                                                msg.source.originalMessage.contentToString()
+                                            )
+                                        else ""
+                                    }
+                                    is Face -> msg.contentToString()
+                                    is ForwardMessage ->
+                                        "[Forward] {\n ${ // TODO: msg chain
+                                            msg.nodeList.map { "  ${it.senderName}: ${it.messageChain}" } 
+                                                .joinToString("\n")
+                                        } }"
+                                    is RichMessage ->
+                                        "[XML] { ${
+                                            extractRichMessage(msg.content)
+                                                .joinToString("\n", transform = Element::text)
+                                        } }"
+                                    else -> msg.contentToString()
+                                }
+                            )
+                        }
                     }
                 }
+                return msgText.toString()
             }
 
-            logger.info(msgText)
-            logger.info(imgs)
-            logger.info(reply)
-
-            val caption = String.format("<b>%s</b>: %s", sender.displayName(), msgText)
+            val caption = String.format("<b>%s</b>: %s", sender.displayName(), parseMsg(message))
             when (imgs.size) {
                 0 -> UniBot.tg.sendMessage(tGroup, caption, replyTo = reply, parseMode = "html")
-                    .whenComplete { t, u -> logger.info(u); History.insert(source, t.message_id) }
+                    .whenComplete { t, u -> logger.info(u); History.insert(source, t) }
                 1 -> UniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply, parseMode = "html")
-                    .whenComplete { t, _ -> History.insert(source, t.message_id) }
+                    .whenComplete { t, _ -> History.insert(source, t) }
                 else -> UniBot.tg.sendMediaGroup(tGroup, imgs.map {
                         UniBot.tg.mediaPhoto(it, caption =  caption, parseMode = "html") }, replyTo = reply)
-                    .whenComplete{ t, _ -> History.insert(source, t.first().message_id) }
+                    .whenComplete{ t, _ -> History.insert(source, t.first()) }
             }
         }
 
@@ -109,7 +116,7 @@ object Forward {
             } + ": ")))
 
             msg.reply_to_message?.let {
-                val id = History.getQQ(it.message_id)
+                val id = History.getQQ(it)
                 if (id == null) msgs.add(PlainText("[Reply👆${it.displayName()}]"))
                 else msgs.add(QuoteReply(id))
             }
@@ -147,7 +154,7 @@ object Forward {
             }
 
             val qid = qGroup.sendMessage(msgs.toMessageChain()).source
-            History.insert(qid, msg.message_id)
+            History.insert(qid, msg)
 
             Unit
         }
@@ -181,7 +188,7 @@ object Forward {
                 sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
             }
             onCommand("/is_drive") { msg, _ ->
-                sendMessage(msg.chat.id, drive[msg.chat.id].toString())
+                sendMessage(msg.chat.id, drive[msg.chat.id].toString(), replyTo = msg.message_id)
             }
         }
     }

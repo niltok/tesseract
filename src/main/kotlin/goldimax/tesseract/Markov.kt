@@ -100,7 +100,7 @@ object Markov {
                     val qm = reply(g.second)
                     val tg = Connections.findTGByQQ(source.group.id)
                     if (tg != null)  UniBot.tg.sendMessage(tg, g.second).whenComplete { t, _ ->
-                        History.insert(qm.source, t.message_id)
+                        History.insert(qm.source, t)
                     }
                 }
             }
@@ -117,7 +117,7 @@ object Markov {
                     GlobalScope.launch {
                         val qq = Connections.findQQByTG(s.chat.id) ?: return@launch
                         val qGroup = UniBot.qq.getGroup(qq) ?: return@launch
-                        History.insert(qGroup.sendMessage(g.second).source, t.message_id)
+                        History.insert(qGroup.sendMessage(g.second).source, t)
                     }
                 }
             }
