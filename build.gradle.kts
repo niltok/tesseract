@@ -5,7 +5,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.*
 
 plugins {
     java
-    kotlin("jvm") version "1.4.10"
+    kotlin("jvm") version "1.4.30"
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
 }
@@ -18,7 +18,7 @@ version = "1.0-SNAPSHOT"
 val MAIN_CLASS = "goldimax.tesseract.AppKt"
 
 repositories {
-    maven("https://mirrors.huaweicloud.com/repository/maven/")
+    // maven("https://mirrors.huaweicloud.com/repository/maven/")
     jcenter()
     maven("https://jitpack.io")
 }
@@ -27,14 +27,16 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("com.beust:klaxon:5.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
-    implementation("net.mamoe:mirai-core:2.4.0")
+    implementation("net.mamoe:mirai-core:2.6.4")
     implementation("com.github.elbekD:kt-telegram-bot:1.2.5")
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
     implementation("com.jcabi:jcabi-manifests:0.7.5")
     implementation(fileTree("src/main/resources/libs"))
     implementation("org.jsoup:jsoup:1.13.1")
     implementation("com.aliyun.openservices", "tablestore", "5.4.0")
+    implementation("io.ktor:ktor-server-core:1.4.0")
     implementation("io.ktor:ktor-server-netty:1.4.0")
+    implementation("com.googlecode.aviator:aviator:5.2.5")
     testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 

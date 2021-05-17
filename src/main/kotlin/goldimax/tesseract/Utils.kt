@@ -30,14 +30,14 @@ import java.util.*
 import kotlin.concurrent.timerTask
 
 inline fun <reified T> getJson(
-    table: String, key: String, keyName: String, column: String): T =
-    UniBot.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
-        .let { Klaxon().parse(it)!! }
+    table: String, key: String, keyName: String, column: String): T? =
+    UniBot.table.read(table, listOf(key to keyName))?.get(column)?.asString()
+        ?.let { Klaxon().parse(it) }
 
 inline fun <reified T> getJson_(
-    table: String, key: String, keyName: String, column: String): T =
-    UniBot.table.read(table, listOf(key to keyName))!!.get(column)!!.asString()
-        .let { Parser.default().parse(StringBuilder(it)) as T }
+    table: String, key: String, keyName: String, column: String): T? =
+    UniBot.table.read(table, listOf(key to keyName))?.get(column)?.asString()
+        ?.let { Parser.default().parse(StringBuilder(it)) as T? }
 
 fun putJson(table: String, key: String, keyName: String, column: String, obj: JsonBase) =
     UniBot.table.write(table, listOf(key to keyName), listOf(column to cVal(obj.toJsonString())))
@@ -76,16 +76,20 @@ suspend fun MessageEvent.quoteReply(msg: String) =
     quoteReply(msg.toPlainText())
 
 // qq
-suspend inline fun MessageEvent.error(after: () -> Unit) = try {
-    after()
-} catch (e: Exception) {
-    reply(e.localizedMessage)
+suspend inline fun MessageEvent.error(after: () -> Unit): Unit {
+    try {
+        after()
+    } catch (e: Exception) {
+        quoteReply(e.localizedMessage)
+    }
 }
 
-suspend inline fun GroupMessageEvent.error(after: () -> Unit) = try {
-    after()
-} catch (e: Exception) {
-    reply(e.localizedMessage)
+suspend inline fun GroupMessageEvent.error(after: () -> Unit): Unit {
+    try {
+        after()
+    } catch (e: Exception) {
+        quoteReply(e.localizedMessage)
+    }
 }
 
 fun MessageEvent.testSu() =

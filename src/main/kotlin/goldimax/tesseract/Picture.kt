@@ -80,13 +80,13 @@ object Picture {
         }
     }
 
-    private val json: Map<String, List<Map<String, String>>> =
+    private val json: Map<String, List<Map<String, String>>>? =
         getJson("core", "key", "picture", "json")
 
-    private val dic = json.map { (k, v) -> k.toLong() to v.map {
+    private val dic = json?.let{ it.map { (k, v) -> k.toLong() to v.map {
         (it["name"] ?: error("wrong config, pic no 'name'")) to
                 (it["uuid"] ?: error("wrong config, pic no 'uuid'"))
-    }.toMap().toMutableMap() }.toMap().toMutableMap()
+    }.toMap().toMutableMap() }.toMap().toMutableMap() } ?: mutableMapOf()
 
     private val logger = getLogger("Picture")
 

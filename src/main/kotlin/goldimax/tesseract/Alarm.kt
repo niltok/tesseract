@@ -65,23 +65,23 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
 object Alarm {
     data class AlarmData(val id: UUID, val time: Date, val duration: Long,
                          val group: Long, val msg: JsonArray<JsonObject>, val timer: Timer)
-    val data = {
-        val json: JsonArray<JsonObject> =
-            getJson_("core", "key", "alarm", "json")
-        json.map {
-            val time = Date(it.long("time")!!)
-            val duration = it.long("duration")!!
-            val group = it.long("group")!!
-            val msg = it.array<JsonObject>("msg")!!
-            val timer = fixRateTimer(time, duration) {
-                GlobalScope.launch {
-                    val g = UniBot.qq.getGroup(group) ?: return@launch
-                    g.sendMessage(g.jsonMessage(msg))
-                }
+    val data = (getJson_("core", "key", "alarm", "json") as JsonArray<JsonObject>?)
+        ?.map {
+        val time = Date(it.long("time")!!)
+        val duration = it.long("duration")!!
+        val group = it.long("group")!!
+        val msg = it.array<JsonObject>("msg")!!
+        val timer = fixRateTimer(time, duration) {
+            GlobalScope.launch {
+                val g = UniBot.qq.getGroup(group) ?: return@launch
+                g.sendMessage(g.jsonMessage(msg))
             }
-            AlarmData(UUID.fromString(it.string("id")!!),
-                time, duration, group, msg, timer) }.toMutableList()
-    }()
+        }
+        AlarmData(
+            UUID.fromString(it.string("id")!!),
+            time, duration, group, msg, timer
+        )
+    }?.toMutableList() ?: mutableListOf()
     fun save() {
         val json = JsonArray(data.map { JsonObject(mapOf(
             "id" to it.id.toString(), "time" to it.time.time, "duration" to it.duration,

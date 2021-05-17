@@ -2,6 +2,7 @@ package goldimax.tesseract
 
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Klaxon
+import com.beust.klaxon.Parser
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import com.elbekD.bot.types.Message as TGMsg
 import net.mamoe.mirai.event.subscribeGroupMessages
@@ -10,17 +11,11 @@ import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import org.apache.log4j.LogManager
 import org.apache.log4j.Logger
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Element
-import org.jsoup.parser.Parser
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.lang.StringBuilder
 import java.net.URL
 import javax.imageio.ImageIO
-
-fun extractRichMessage(content: String): List<Element> =
-    Jsoup.parse(content, "", Parser.xmlParser()).select("title").toList()
 
 object Forward {
     private val logger: Logger = LogManager.getLogger(this.javaClass)
@@ -74,11 +69,12 @@ object Forward {
                                             msg.nodeList.map { "  ${it.senderName}: ${it.messageChain}" } 
                                                 .joinToString("\n")
                                         } }"
-                                    is RichMessage ->
-                                        "[XML] { ${
-                                            extractRichMessage(msg.content)
-                                                .joinToString("\n", transform = Element::text)
-                                        } }"
+                                    is RichMessage -> {
+                                        val json = Parser.default().parse(msg.content.byteInputStream()) as JsonObject
+                                        json.obj("meta")?.values?.map { it as JsonObject }?.joinToString("\n") {
+                                            "<a href='${it.string("qqdocurl")}'>${it.string("desc")}</a>"
+                                        } ?: ""
+                                    }
                                     else -> msg.contentToString()
                                 }
                             )

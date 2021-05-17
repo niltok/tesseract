@@ -10,7 +10,7 @@ object ImageMgr {
     fun remove(id: UUID) =
         UniBot.table.remove("image", listOf("id" to id.toString()))
     fun new(image: ByteArray): UUID {
-        val id = UUID.randomUUID()
+        val id = UUID.randomUUID()!!
         this[id] = image
         return id
     }

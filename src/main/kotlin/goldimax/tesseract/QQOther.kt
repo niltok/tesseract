@@ -25,7 +25,7 @@ object QQOther {
                     testSu()
 
                     val id = message.plainText().removePrefix("plz add su").trim().let {
-                        if (it.isEmpty()) message.firstIsInstance<At>().target
+                        if (it.isBlank()) message.firstIsInstance<At>().target
                         else it.toLong()
                     }
                     SUManager.qqAdmin.add(id)
@@ -57,7 +57,19 @@ object QQOther {
                     testSu()
                     reply("Trying to reboot...")
                     Runtime.getRuntime().exec(
-                        "killall java; nohup java -jar rainbow.jar &")
+                        "systemctl restart rainbow.service")
+                }
+            }
+            startsWith("") {
+                if (message.plainText().trim() == "full content")
+                    message[QuoteReply]?.source?.originalMessage?.let {
+                        quoteReply(it.contentToString())
+                    }
+                message[RichMessage]?.content?.let {
+                    val json = Parser.default().parse(it.byteInputStream()) as JsonObject
+                    json.obj("meta") ?.values ?.map { it as JsonObject }
+                        ?.joinToString("\n") { it.string("qqdocurl") ?: "" }
+                        ?.let { quoteReply(it) }
                 }
             }
         }

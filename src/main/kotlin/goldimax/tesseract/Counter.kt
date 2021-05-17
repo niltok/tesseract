@@ -6,14 +6,14 @@ import net.mamoe.mirai.event.subscribeGroupMessages
 import java.io.File
 
 object Counter {
-    private val json: Map<String, List<Map<String, String>>> =
+    private val json: Map<String, List<Map<String, String>>>? =
         getJson("core", "key", "counter", "json")
 
-    private val dic = json.map {
+    private val dic = json?.map {
         it.key.toLong() to it.value.map {
             it["regex"]!!.toRegex() to it["counter"]!!.toLong()
         }.toMap().toMutableMap()
-    }.toMap().toMutableMap()
+    }?.toMap()?.toMutableMap() ?: mutableMapOf()
 
     private fun save() {
         putJson("core", "key", "counter", "json",

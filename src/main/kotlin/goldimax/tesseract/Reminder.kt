@@ -4,9 +4,7 @@ import com.beust.klaxon.JsonObject
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.At
-import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.firstIsInstanceOrNull
-import java.io.File
 import java.time.Duration
 import java.time.Instant
 import java.util.*
@@ -17,15 +15,15 @@ object Reminder {
     private val history = mutableMapOf<Long, MutableMap<Long, Instant>>()
 
 
-    private val reminders: MutableMap<Long, MutableMap<Long, Remind>> = {
-        val json: Map<String, Map<String, Map<String, String>>> =
+    private val reminders: MutableMap<Long, MutableMap<Long, Remind>> = run {
+        val json: Map<String, Map<String, Map<String, String>>>? =
             getJson("core", "key", "reminder", "json")
-        json.mapKeys { it.key.toLong() } .mapValues {
+        json?.mapKeys { it.key.toLong() }?.mapValues {
             it.value.mapKeys { it.key.toLong() }.mapValues {
                 Remind(it.value["content"]!!, Duration.ofMinutes(it.value["duration"]!!.toLong()))
             }.toMutableMap()
-        }.toMutableMap()
-    }()
+        }?.toMutableMap() ?: mutableMapOf()
+    }
 
     private fun save() =
         putJson("core", "key", "reminder", "json", JsonObject(reminders
