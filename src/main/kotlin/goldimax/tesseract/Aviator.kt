@@ -4,6 +4,7 @@ import com.beust.klaxon.JsonObject
 import com.googlecode.aviator.AviatorEvaluator
 import com.googlecode.aviator.Feature
 import com.googlecode.aviator.Options
+import com.googlecode.aviator.runtime.JavaMethodReflectionFunctionMissing
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.At
@@ -69,6 +70,7 @@ object Aviator {
         avs.disableFeature(Feature.Module)
         avs.setOption(Options.MAX_LOOP_COUNT, loopLimit)
         avs.setOption(Options.ALLOWED_CLASS_SET, allowedClass.toHashSet())
+        avs.functionMissing = JavaMethodReflectionFunctionMissing.getInstance()
         UniBot.qq.eventChannel.subscribeMessages {
             "avs status" reply """
                 禁用语法特性: Module
@@ -87,6 +89,7 @@ object Aviator {
                 {reply} avs run (<code>)
                 avs run [<name>]
                 {reply} avs save <name>
+                avs list ({mention})
                 avs delete <name>
                 avs show ({mention}) [<name>]
             """.trimIndent()
@@ -120,6 +123,13 @@ object Aviator {
                     quoteReply("Done.")
                 }
             }
+            startsWith("avs list") {
+                error {
+                    scripts[message.firstIsInstanceOrNull<At>()?.target ?: sender.id]?.keys?.let {
+                        quoteReply(it.joinToString("\n"))
+                    } ?: quoteReply("Empty.")
+                }
+            }
             startsWith("avs delete") {
                 error {
                     ScriptMgr.remove(scripts[sender.id]?.get(it) ?: error("No such a script"))
@@ -131,7 +141,7 @@ object Aviator {
             startsWith("avs show") {
                 error {
                     quoteReply(message.plainText().removePrefix("avs show").split(" ")
-                        .map { it.trim() }.joinToString("\n") {
+                        .map { it.trim() }.filter { it.isNotBlank() }.joinToString("\n") {
                             ScriptMgr[scripts[message.firstIsInstanceOrNull<At>()?.target ?: sender.id]
                                 ?.get(it) ?: error("Cannot find $it")]!!
                         })

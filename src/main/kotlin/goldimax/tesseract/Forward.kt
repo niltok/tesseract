@@ -149,6 +149,13 @@ object Forward {
                 msgs.add(image)
             }
 
+            msg.entities?.forEach {
+                it.url?.let {
+                    val s = "\n" + it
+                    msgs.add(PlainText(s))
+                }
+            }
+
             val qid = qGroup.sendMessage(msgs.toMessageChain()).source
             History.insert(qid, msg)
 
