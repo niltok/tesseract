@@ -13,12 +13,12 @@ object Recorder {
     private var fileName = ""
     private var tellerID = 0L
     private var tellerName = ""
-    private var isRecording = false
+    private var recordingGroups : ArrayList<Long> = ArrayList()
     private var recordString = ""
     init {
         UniBot.qq.eventChannel.subscribeGroupMessages {
             always {
-                if (isRecording && tellerID == sender.id && tellerName == sender.nick) {
+                if (recordingGroups.contains(group.id) && tellerID == sender.id && tellerName == sender.nick) {
                     val msg = message.content
                     if (msg != "/end_record") {
                         recordString += msg + "\n"
@@ -29,13 +29,13 @@ object Recorder {
             }
             case("/start_record ") {
                 error {
-                    check(!isRecording) {"ERROR: another record is ongoing"}
+                    check(!recordingGroups.contains(group.id)) {"ERROR: another record is ongoing"}
                     fileName = message.plainText().removePrefix("/start_record ")
                     check(fileName.isNotEmpty()) { "ERROR: empty record name" }
                     fileName += ".txt"
                     tellerID = sender.id
                     tellerName = sender.nick
-                    isRecording = true
+                    recordingGroups.add(group.id)
                     recordString = ""
                     subject.sendMessage("DOMO, ${tellerName}=san. Motor·Rainbow, recorder circuit on, 実際安い.")
                     }
@@ -43,12 +43,13 @@ object Recorder {
                 }
             case("/end_record") {
                 if (sender.id == tellerID && sender.nick == tellerName) {
-                    var file = File(fileName)
+                    var file = File.createTempFile(fileName, null)
                     file.writeText(recordString)
-                    group.uploadFile("/$fileName", file)
+                    group.filesRoot.resolve("/$fileName").uploadAndSend(file)
+                    var isDeleted = file.delete()
                     tellerID = 0L
                     tellerName = ""
-                    isRecording = false
+                    recordingGroups.remove(group.id)
                     recordString = ""
                     subject.sendMessage("Recorder circuit off. Uploading...")
                 }
