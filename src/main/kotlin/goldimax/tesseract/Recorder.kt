@@ -37,7 +37,7 @@ object Recorder {
                     tellerName = sender.nick
                     recordingGroups.add(group.id)
                     recordString = ""
-                    subject.sendMessage("DOMO, ${tellerName}=san. Motor·Rainbow, recorder circuit on, 実際安い.")
+                    quoteReply("DOMO, ${tellerName}=san. Motor·Rainbow, recorder circuit on, 実際安い.")
                     }
                     return@case
                 }
