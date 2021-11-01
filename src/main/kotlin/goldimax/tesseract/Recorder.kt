@@ -32,6 +32,7 @@ object Recorder {
                     check(!isRecording) {"ERROR: another record is ongoing"}
                     fileName = message.plainText().removePrefix("/start_record ")
                     check(fileName.isNotEmpty()) { "ERROR: empty record name" }
+                    fileName += ".txt"
                     tellerID = sender.id
                     tellerName = sender.nick
                     isRecording = true
