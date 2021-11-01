@@ -20,6 +20,7 @@ fun main() = runBlocking {
     Alarm
     Markov
     Aviator
+    Recorder
 
     WebServer
 
