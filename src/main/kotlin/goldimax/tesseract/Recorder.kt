@@ -14,14 +14,14 @@ object Recorder {
     private var tellerID = 0L
     private var tellerName = ""
     private var recordingGroups : ArrayList<Long> = ArrayList()
-    private var recordString = ""
+    private var recordString : HashMap<Long, String> = HashMap<Long, String> ()
     init {
         UniBot.qq.eventChannel.subscribeGroupMessages {
             always {
                 if (recordingGroups.contains(group.id) && tellerID == sender.id && tellerName == sender.nick) {
                     val msg = message.content
                     if (msg != "/end_record") {
-                        recordString += msg + "\n"
+                        recordString.replace(group.id, recordString[group.id]+msg+"\n")
                         subject.sendMessage("√")
                     }
                 }
@@ -36,7 +36,7 @@ object Recorder {
                     tellerID = sender.id
                     tellerName = sender.nick
                     recordingGroups.add(group.id)
-                    recordString = ""
+                    recordString[group.id] = ""
                     quoteReply("DOMO, ${tellerName}=san. Motor·Rainbow, recorder circuit on, 実際安い.")
                     }
                     return@case
@@ -44,13 +44,13 @@ object Recorder {
             case("/end_record") {
                 if (sender.id == tellerID && sender.nick == tellerName) {
                     var file = File.createTempFile(fileName, null)
-                    file.writeText(recordString)
+                    recordString[group.id]?.let { it1 -> file.writeText(it1) }
                     group.filesRoot.resolve("/$fileName").uploadAndSend(file)
                     var isDeleted = file.delete()
                     tellerID = 0L
                     tellerName = ""
                     recordingGroups.remove(group.id)
-                    recordString = ""
+                    recordString.remove(group.id)
                     subject.sendMessage("Recorder circuit off. Uploading...")
                 }
                 return@case
