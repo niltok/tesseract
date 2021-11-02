@@ -21,6 +21,7 @@ fun main() = runBlocking {
     Markov
     Aviator
     WebPage
+    Recorder
 
     WebServer
 
