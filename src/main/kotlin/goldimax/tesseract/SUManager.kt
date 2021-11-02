@@ -2,8 +2,8 @@ package goldimax.tesseract
 
 import com.beust.klaxon.JsonArray
 
-inline class QQUser(val id: Long)
-inline class TGUser(val id: Long)
+class QQUser(val id: Long)
+class TGUser(val id: Long)
 
 object SUManager {
     private val raw = UniBot.table.read("core", listOf("key" to "sumgr"))!!

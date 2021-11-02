@@ -6,6 +6,7 @@ import com.beust.klaxon.Klaxon
 import com.beust.klaxon.Parser
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.PlainText
@@ -114,9 +115,9 @@ object Markov {
             val g = gen(text.drop(floor(random() * (text.length - rank)).toInt()).take(rank))
             if (g.first && g.second.length > rank) {
                 UniBot.tg.sendMessage(s.chat.id, g.second).whenComplete { t, _ ->
-                    GlobalScope.launch {
-                        val qq = Connections.findQQByTG(s.chat.id) ?: return@launch
-                        val qGroup = UniBot.qq.getGroup(qq) ?: return@launch
+                    runBlocking {
+                        val qq = Connections.findQQByTG(s.chat.id) ?: return@runBlocking
+                        val qGroup = UniBot.qq.getGroup(qq) ?: return@runBlocking
                         History.insert(qGroup.sendMessage(g.second).source, t)
                     }
                 }

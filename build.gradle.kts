@@ -5,7 +5,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.*
 
 plugins {
     java
-    kotlin("jvm") version "1.4.30"
+    kotlin("jvm") version "1.6.0-RC"
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
 }
@@ -26,8 +26,8 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("com.beust:klaxon:5.0.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
-    implementation("net.mamoe:mirai-core:2.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
+    implementation("net.mamoe:mirai-core:2.7.1")
     implementation("com.github.elbekD:kt-telegram-bot:1.2.5")
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
     implementation("com.jcabi:jcabi-manifests:0.7.5")
@@ -37,6 +37,7 @@ dependencies {
     implementation("io.ktor:ktor-server-core:1.4.0")
     implementation("io.ktor:ktor-server-netty:1.4.0")
     implementation("com.googlecode.aviator:aviator:5.2.5")
+    implementation("io.github.fanyong920:jvppeteer:1.1.3")
     testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 

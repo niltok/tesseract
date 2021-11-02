@@ -4,7 +4,9 @@ import com.beust.klaxon.JsonArray
 import com.beust.klaxon.JsonObject
 import io.ktor.util.InternalAPI
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.*
@@ -15,7 +17,6 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
     var state = 0
     var time: Calendar = Calendar.getInstance()
     var duration: Duration = Duration.ofDays(1)
-    @InternalAPI
     override suspend fun handle(id: UUID, message: MessageEvent) {
         when (state) {
             0 -> message.error {
@@ -47,7 +48,7 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
                     it is PlainText || it is Image || it is Face ||
                             it is At && it.target != UniBot.qq.id }
                 val timer = fixRateTimer(time.time, duration.toMillis()) {
-                    GlobalScope.launch { message.reply(msg.toMessageChain()) }
+                    runBlocking { message.reply(msg.toMessageChain()) }
                 }
                 val timerID = UUID.randomUUID()
                 val data = Alarm.AlarmData(timerID, time.time, duration.toMillis(),
@@ -72,8 +73,8 @@ object Alarm {
         val group = it.long("group")!!
         val msg = it.array<JsonObject>("msg")!!
         val timer = fixRateTimer(time, duration) {
-            GlobalScope.launch {
-                val g = UniBot.qq.getGroup(group) ?: return@launch
+            runBlocking {
+                val g = UniBot.qq.getGroup(group) ?: return@runBlocking
                 g.sendMessage(g.jsonMessage(msg))
             }
         }

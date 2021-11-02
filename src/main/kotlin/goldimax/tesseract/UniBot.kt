@@ -1,8 +1,6 @@
 package goldimax.tesseract
 
 import com.alicloud.openservices.tablestore.SyncClient
-import com.beust.klaxon.JsonArray
-import com.beust.klaxon.JsonObject
 import com.elbekD.bot.types.Message
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -10,9 +8,7 @@ import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.alsoLogin
 import java.io.File
-import java.lang.Exception
 import com.elbekD.bot.Bot as tgBot
-import net.mamoe.mirai.Bot as qqBot
 
 const val envName = "env"
 
@@ -23,10 +19,10 @@ object UniBot {
 
     val tgToken = table.read("core", listOf("key" to "tg"))!!["token"]!!.asString()!!
 
-    val qq = {
+    val qq = run {
         val row = table.read("core", listOf("key" to "qq"))!!
         BotFactory.newBot(row["id"]!!.asLong(), row["pwd"]!!.asString())
-    } ()
+    }
     val tg = tgBot.createPolling("", tgToken)
     val tgListener = mutableListOf<suspend (Message) -> Unit>()
 

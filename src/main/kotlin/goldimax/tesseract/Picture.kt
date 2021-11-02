@@ -6,7 +6,9 @@ import com.elbekD.bot.types.InlineKeyboardButton
 import com.elbekD.bot.types.InlineKeyboardMarkup
 import com.elbekD.bot.types.Message
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
@@ -215,7 +217,7 @@ object Picture {
                     temp.writeBytes(ImageMgr[UUID.fromString(uuid)]!!)
                     sendPhoto(msg.chat.id, temp).whenComplete { t, _ ->
                         val qq = Connections.findQQByTG(msg.chat.id)
-                        if (qq != null) GlobalScope.launch {
+                        if (qq != null) runBlocking {
                             val qGroup = UniBot.qq.getGroup(qq)
                             if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t)
                             temp.delete()
@@ -230,11 +232,11 @@ object Picture {
                     ?: dic[Connections.findQQByTG(it.chat.id)]?.get(it.text?.trim())
                 if (maybe.isNullOrBlank()) return@add
                 val temp = File(maybe)
-                temp.createNewFile()
+                coroutineScope { temp.createNewFile() }
                 temp.writeBytes(ImageMgr[UUID.fromString(maybe)]!!)
                 sendPhoto(it.chat.id, temp).whenComplete { t, _ ->
                     val qq = Connections.findQQByTG(it.chat.id)
-                    if (qq != null) GlobalScope.launch {
+                    if (qq != null) runBlocking {
                         val qGroup = UniBot.qq.getGroup(qq)
                         if (qGroup != null) History.insert(qGroup.sendImage(temp).source, t)
                         temp.delete()

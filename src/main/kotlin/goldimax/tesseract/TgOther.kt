@@ -3,6 +3,8 @@ package goldimax.tesseract
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Parser
 import com.jcabi.manifests.Manifests
+import net.mamoe.mirai.contact.Contact.Companion.sendImage
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
@@ -71,6 +73,13 @@ object TgOther {
                     sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
                 }
             }
+        }
+        UniBot.tgListener.add {
+            try {
+                val qq = UniBot.qq.getGroup(Connections.findQQByTG(it.chat.id)!!)!!
+                val url = it.entities!!.first { URL(it.url).host == "twitter.com" }
+                qq.sendImage(WebPage.renderTweet(url.toString()).inputStream())
+            } catch (e : Exception) {}
         }
     }
 }

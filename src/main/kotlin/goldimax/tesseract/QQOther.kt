@@ -3,9 +3,12 @@ package goldimax.tesseract
 import com.beust.klaxon.JsonObject
 import com.beust.klaxon.Parser
 import com.jcabi.manifests.Manifests
+import kotlinx.coroutines.coroutineScope
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.utils.ExternalResource
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import java.net.URL
 
 object QQOther {
@@ -74,6 +77,12 @@ object QQOther {
             }
         }
         qq.eventChannel.subscribeGroupMessages {
+            startsWith("tex#", true) {
+                error {
+                    val img = WebPage.renderTex(it).inputStream().uploadAsImage(group)
+                    reply(img)
+                }
+            }
             case("plz disconnect") {
                 error {
                     testSu()
@@ -83,6 +92,13 @@ object QQOther {
 
                     reply("Done.")
                 }
+            }
+            startsWith("") {
+                try {
+                    val url = URL(it)
+                    if (url.host == "twitter.com")
+                        reply(WebPage.renderTweet(it).inputStream().uploadAsImage(group))
+                } catch (e : Exception) {}
             }
         }
     }
