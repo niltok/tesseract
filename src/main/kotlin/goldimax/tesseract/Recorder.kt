@@ -1,53 +1,78 @@
 package goldimax.tesseract
 
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.event.subscribeGroupMessages
-import net.mamoe.mirai.message.data.buildMessageChain
 import net.mamoe.mirai.message.data.content
-import net.mamoe.mirai.utils.RemoteFile.Companion.uploadFile
 import java.io.File
-import kotlin.math.floor
+import java.text.SimpleDateFormat
+import java.util.*
 
 data class Trace(
     var fileName: String? = null,
     var tellerID: Long = 0L,
     var tellerName: String? = null,
-    var recordString: String? = null)
+    var recordString: String? = null
+)
 
 object Recorder {
-    private var record : HashMap<Long, Trace> = HashMap<Long, Trace> ()
+    private var record: HashMap<Long, Trace> = HashMap<Long, Trace>()
+
+    private suspend fun writeTempFile(s: String): File {
+        val file = withContext(Dispatchers.IO) {
+            File.createTempFile(UUID.randomUUID().toString(), "tmp")
+        }
+        withContext(Dispatchers.IO) { file.writeText(s) }
+        return file
+    }
+
+    private suspend fun upload(group: Group, file: File) {
+        withContext(Dispatchers.IO) {
+            group.filesRoot.resolve(
+                "/${record[group.id]?.fileName}-" +
+                        SimpleDateFormat("MM月dd日-hh:mm:ss").format(Date()) +
+                        ".txt"
+            ).uploadAndSend(file)
+        }
+    }
+
     init {
         UniBot.qq.eventChannel.subscribeGroupMessages {
             always {
-                if (record.keys.contains(group.id) && record[group.id]?.tellerID == sender.id && record[group.id]?.tellerName == sender.nick) {
-                    val msg = message.content
-                    if (msg != "/end_record") {
-                        record[group.id]?.recordString += msg + "\n"
-                        subject.sendMessage("√")
+                record[group.id]?.let { t ->
+                    if (t.tellerID == sender.id && t.tellerName == sender.nick) {
+                        val msg = message.content
+                        if (msg != "/end_record") {
+                            t.recordString += msg + "\n"
+                            subject.sendMessage("√")
+                        }
                     }
                 }
+
                 return@always
             }
-            case("/start_record ") {
+            startsWith("/start_record ") {
                 error {
-                    check(!record.keys.contains(group.id)) {"ERROR: another record is ongoing in this group"}
-                    var n = message.plainText().removePrefix("/start_record ")
+                    check(group.id !in record.keys) { "ERROR: another record is ongoing in this group" }
+                    val n = message.plainText().removePrefix("/start_record ")
                     check(n.isNotEmpty()) { "ERROR: empty record name" }
-                    record[group.id] = Trace("$n.txt", sender.id, sender.nick, "")
+                    record[group.id] = Trace(n, sender.id, sender.nick, "")
                     quoteReply("DOMO, ${record[group.id]?.tellerName}=san. Motor·Rainbow, recorder circuit on, 実際安い.")
-                    }
-                    return@case
                 }
+                return@startsWith
+            }
             case("/end_record") {
-                if (sender.id ==  record[group.id]?.tellerID && sender.nick ==  record[group.id]?.tellerName) {
-                    var file = File.createTempFile( record[group.id]?.fileName, null)
-                    record[group.id]?.recordString?.let { it1 -> file.writeText(it1) }
-                    group.filesRoot.resolve("/${record[group.id]?.fileName}").uploadAndSend(file)
-                    var isDeleted = file.delete()
-                    record.remove(group.id)
-                    subject.sendMessage("Recorder circuit off. Uploading...")
+                record[group.id]?.let { t ->
+                    if (t.tellerID == sender.id && t.tellerName == sender.nick) {
+                        val file = t.recordString?.let { it1 -> writeTempFile(it1) }
+                        file?.let { it1 -> upload(group, it1) }
+                        file?.delete()
+                        record.remove(group.id)
+                        subject.sendMessage("Recorder circuit off. Uploading...")
+                    }
                 }
+
                 return@case
             }
         }
