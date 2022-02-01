@@ -1,8 +1,9 @@
-package goldimax.tesseract
+package niltok.tesseract
 
-import com.beust.klaxon.JsonObject
-import com.beust.klaxon.Parser
 import com.jcabi.manifests.Manifests
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import java.net.URL
@@ -24,51 +25,29 @@ object TgOther {
                     """
             Copy. I am online.
             You are ${msg.from!!.id}.
-            You are${if (SUManager.isSuperuser(TGUser(msg.from!!.id.toLong()))) "" else " not"} superuser.
+            You are${if (SUManager.isSuperuser(IMUser.TG(msg.from!!.id.toLong()))) "" else " not"} superuser.
             Here is ${msg.chat.id}.
             Build: $version
             """.trimIndent()
                 )
             }
 
-            onCommand("/connect") { msg, cmd ->
-                error(msg) {
-                    testSu(msg)
-
-                    Connections.connect.add(Connection(cmd!!.trim().toLong(), msg.chat.id))
-                    Connections.save()
-
-                    sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-                }
-            }
-
             onCommand("/hitokoto") { msg, _ ->
-                val json = Parser.default().parse(
+                val json = SJson.parseToJsonElement(
                     URL("https://v1.hitokoto.cn/")
-                        .openStream()
-                ) as JsonObject
+                        .openStream().readBytes().decodeToString()).jsonObject
                 sendMessage(msg.chat.id, "「${
-                    json.string("hitokoto")}」 —— ${
-                    json.string("from")}")
-            }
-
-            onCommand("/disconnect") { msg, _ ->
-                error(msg) {
-                    testSu(msg)
-
-                    Connections.connect.removeIf { it.tg == msg.chat.id }
-                    Connections.save()
-
-                    sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-                }
+                    json["hitokoto"]?.jsonPrimitive?.contentOrNull
+                }」 —— ${
+                    json["from"]?.jsonPrimitive?.contentOrNull
+                }")
             }
 
             onCommand("/add_su") { msg, cmd ->
                 error(msg) {
                     testSu(msg)
 
-                    SUManager.tgAdmin.add(cmd!!.trim().toLong())
-                    SUManager.save()
+                    SUManager.addSuperuser(IMUser.TG(cmd!!.trim().toLong()))
 
                     sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
                 }

@@ -5,7 +5,8 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.*
 
 plugins {
     java
-    kotlin("jvm") version "1.6.0-RC"
+    kotlin("jvm") version "1.5.31"
+    kotlin("plugin.serialization") version "1.5.31"
     application
     id("com.github.johnrengelman.shadow") version "5.2.0"
 }
@@ -13,31 +14,31 @@ plugins {
 apply(plugin = "com.github.johnrengelman.shadow")
 apply(plugin = "java")
 
-group = "goldimax.tesseract"
-version = "1.0-SNAPSHOT"
-val MAIN_CLASS = "goldimax.tesseract.AppKt"
+group = "niltok.tesseract"
+version = "Rolling"
+val MAIN_CLASS = "niltok.tesseract.AppKt"
 
 repositories {
     // maven("https://mirrors.huaweicloud.com/repository/maven/")
-    jcenter()
+    mavenCentral()
     maven("https://jitpack.io")
+    maven("https://plugins.gradle.org/m2/")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.beust:klaxon:5.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
-    implementation("net.mamoe:mirai-core:2.7.1")
-    implementation("com.github.elbekD:kt-telegram-bot:1.2.5")
+    implementation("net.mamoe:mirai-core:2.8.0")
+    implementation("com.github.elbekD:kt-telegram-bot:1.4.1")
+    //implementation("dev.inmo:tgbotapi:0.37.1")
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
     implementation("com.jcabi:jcabi-manifests:0.7.5")
     implementation(fileTree("src/main/resources/libs"))
     implementation("org.jsoup:jsoup:1.13.1")
-    implementation("com.aliyun.openservices", "tablestore", "5.4.0")
-    implementation("io.ktor:ktor-server-core:1.4.0")
-    implementation("io.ktor:ktor-server-netty:1.4.0")
-    implementation("com.googlecode.aviator:aviator:5.2.5")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.0")
     implementation("io.github.fanyong920:jvppeteer:1.1.3")
+    implementation("org.apache.logging.log4j:log4j-core:2.14.1")
+    implementation("io.lettuce:lettuce-core:6.1.5.RELEASE")
     testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 

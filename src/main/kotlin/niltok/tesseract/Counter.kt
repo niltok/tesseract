@@ -1,24 +1,12 @@
-package goldimax.tesseract
+package niltok.tesseract
 
-import com.beust.klaxon.JsonArray
-import com.beust.klaxon.JsonObject
 import net.mamoe.mirai.event.subscribeGroupMessages
-import java.io.File
 
 object Counter {
-    private val json: Map<String, List<Map<String, String>>>? =
-        getJson("core", "key", "counter", "json")
 
-    private val dic = json?.map {
-        it.key.toLong() to it.value.map {
-            it["regex"]!!.toRegex() to it["counter"]!!.toLong()
-        }.toMap().toMutableMap()
-    }?.toMap()?.toMutableMap() ?: mutableMapOf()
+    private val dic: MutableMap<Long, MutableMap<Regex, Long>> = mutableMapOf()
 
     private fun save() {
-        putJson("core", "key", "counter", "json",
-            JsonObject(dic.mapKeys { it.key.toString() }.mapValues { JsonArray(it.value.map {
-                    JsonObject(mapOf("regex" to it.key.pattern, "counter" to it.value.toString())) }) }))
     }
 
     init {

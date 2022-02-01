@@ -1,11 +1,5 @@
-package goldimax.tesseract
+package niltok.tesseract
 
-import com.beust.klaxon.JsonArray
-import com.beust.klaxon.JsonObject
-import io.ktor.util.InternalAPI
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
@@ -51,8 +45,10 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
                     runBlocking { message.reply(msg.toMessageChain()) }
                 }
                 val timerID = UUID.randomUUID()
-                val data = Alarm.AlarmData(timerID, time.time, duration.toMillis(),
-                    group, msg.toJson(), timer)
+                val data = Alarm.AlarmData(
+                    timerID, time.time, duration.toMillis(),
+                    group, UniMsgType.Text(""), timer
+                )
                 Alarm.data.add(data)
                 Alarm.save()
                 TransactionManager.remove(id)
@@ -65,29 +61,9 @@ class AlarmQQTransaction(private val group: Long): QQTransaction {
 
 object Alarm {
     data class AlarmData(val id: UUID, val time: Date, val duration: Long,
-                         val group: Long, val msg: JsonArray<JsonObject>, val timer: Timer)
-    val data = (getJson_("core", "key", "alarm", "json") as JsonArray<JsonObject>?)
-        ?.map {
-        val time = Date(it.long("time")!!)
-        val duration = it.long("duration")!!
-        val group = it.long("group")!!
-        val msg = it.array<JsonObject>("msg")!!
-        val timer = fixRateTimer(time, duration) {
-            runBlocking {
-                val g = UniBot.qq.getGroup(group) ?: return@runBlocking
-                g.sendMessage(g.jsonMessage(msg))
-            }
-        }
-        AlarmData(
-            UUID.fromString(it.string("id")!!),
-            time, duration, group, msg, timer
-        )
-    }?.toMutableList() ?: mutableListOf()
+                         val group: Long, val msg: UniMsgType, val timer: Timer)
+    val data = mutableListOf<AlarmData>()
     fun save() {
-        val json = JsonArray(data.map { JsonObject(mapOf(
-            "id" to it.id.toString(), "time" to it.time.time, "duration" to it.duration,
-            "group" to it.group, "msg" to it.msg)) })
-        putJson("core", "key", "alarm", "json", json)
     }
     init {
         save()
@@ -114,8 +90,7 @@ object Alarm {
                     val alarmData = data.first { x -> x.id.toString() == it.trim()
                             && x.group == source.group.id }
                     quoteReply("start: ${alarmData.time}\n" +
-                            "duration: ${Duration.ofMillis(alarmData.duration)}\n" +
-                            source.group.jsonMessage(alarmData.msg))
+                            "duration: ${Duration.ofMillis(alarmData.duration)}\n")
                 }
             }
             startsWith("remove alarm ", true) {
@@ -123,9 +98,7 @@ object Alarm {
                     val alarmData = data.first { x -> x.id.toString() == it.trim()
                             && x.group == source.group.id }
                     alarmData.timer.cancel()
-                    alarmData.msg.forEach { if (it.string("type")!! == "image") {
-                            ImageMgr.remove(UUID.fromString(it.string("value")!!))
-                    } }
+                    // remove Image
                     data.removeIf { it.id == alarmData.id }
                     save()
                     quoteReply("Done.")

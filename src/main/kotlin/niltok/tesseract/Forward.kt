@@ -1,35 +1,26 @@
-package goldimax.tesseract
+package niltok.tesseract
 
-import com.beust.klaxon.JsonObject
-import com.beust.klaxon.Klaxon
-import com.beust.klaxon.Parser
+import com.elbekD.bot.Bot
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.mamoe.mirai.event.events.GroupMessageEvent
-import com.elbekD.bot.types.Message as TGMsg
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
-import org.apache.log4j.LogManager
-import org.apache.log4j.Logger
+import net.mamoe.mirai.utils.MiraiLogger
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.lang.StringBuilder
 import java.net.URL
+import java.time.Duration
+import java.time.Instant
+import java.util.*
 import javax.imageio.ImageIO
+import com.elbekD.bot.types.Message as TGMsg
 
 object Forward {
-    private val logger: Logger = LogManager.getLogger(this.javaClass)
-
-    private val drive: MutableMap<Long, Boolean> =
-        UniBot.table.read("core", listOf("key" to "forward"))
-            ?.get("drive")?.asString()?.let { Klaxon().parse<Map<String, Boolean>>(it)
-                ?.mapKeys { (k, _) -> k.toLong() } ?. toMutableMap() }
-            ?: mutableMapOf()
-
-    private fun save() {
-        UniBot.table.write("core", listOf("key" to "forward"),
-            listOf("drive" to cVal(JsonObject(drive.mapKeys { (k, _) -> k.toString() }).toJsonString())))
-    }
+    private val logger = MiraiLogger.Factory.create(this::class)
 
     val forward: () -> Unit = {
         val handleQQ: suspend GroupMessageEvent.(String) -> Unit = lambda@{
@@ -39,7 +30,7 @@ object Forward {
                 return@lambda
             }
 
-            var reply: Int? = null
+            var reply: Long? = null
             val imgs = mutableListOf<String>()
             suspend fun parseMsg(message: MessageChain): String {
                 val msgText = StringBuilder()
@@ -66,14 +57,18 @@ object Forward {
                                     is Face -> msg.contentToString()
                                     is ForwardMessage ->
                                         "[Forward] {\n ${ // TODO: msg chain
-                                            msg.nodeList.map { "  ${it.senderName}: ${it.messageChain}" } 
-                                                .joinToString("\n")
+                                            msg.nodeList.joinToString("\n") { "  ${it.senderName}: ${it.messageChain}" }
                                         } }"
                                     is RichMessage -> {
-                                        val json = Parser.default().parse(msg.content.byteInputStream()) as JsonObject
-                                        json.obj("meta")?.values?.map { it as JsonObject }?.joinToString("\n") {
-                                            "<a href='${it.string("qqdocurl")}'>${it.string("desc")}</a>"
-                                        } ?: ""
+                                        val json = SJson.parseToJsonElement(msg.content).jsonObject
+                                        json["meta"]?.jsonObject?.values?.map { it.jsonObject }
+                                            ?.joinToString("\n") {
+                                                "<a href='${
+                                                    it["qqdocurl"]?.jsonPrimitive?.contentOrNull
+                                                }'>${
+                                                    it["desc"]?.jsonPrimitive?.contentOrNull
+                                                }</a>"
+                                            } ?: ""
                                     }
                                     else -> msg.contentToString()
                                 }
@@ -96,12 +91,13 @@ object Forward {
             }
         }
 
-        val handleTg: suspend (TGMsg) -> Unit = lambda@{ msg ->
+        val handleTg: suspend Bot.(TGMsg) -> Unit = lambda@{ msg ->
+            if (Instant.ofEpochSecond(msg.date.toLong()) + Duration.ofMinutes(3) < Date().toInstant())
+                return@lambda
             logger.debug("receive tg ${msg.text}")
-            if (drive[msg.chat.id] == true) return@lambda
             val qq = Connections.findQQByTG(msg.chat.id)
-            logger.info("transfering to ${msg.chat.id}")
-            if (qq == null) {
+            logger.info("transferring to ${msg.chat.id}")
+            if (qq == null || !(IMGroup.TG(msg.chat.id) transfer IMGroup.QQ(qq))) {
                 return@lambda
             }
             val qGroup = UniBot.qq.groups[qq] ?: return@lambda
@@ -163,7 +159,7 @@ object Forward {
         }
 
         UniBot.tgListener.add(handleTg)
-        UniBot.tg.onEditedMessage(handleTg)
+        UniBot.tg.onEditedMessage { UniBot.tg.handleTg(it) }
         UniBot.qq.eventChannel.subscribeGroupMessages { contains("", onEvent = handleQQ) }
     }
 
@@ -176,22 +172,6 @@ object Forward {
 
             startsWith("FACE", true) {
                 quoteReply(Face(it.trim().toInt()))
-            }
-        }
-
-        UniBot.tg.run {
-            onCommand("/drive") { msg, _ ->
-                drive[msg.chat.id] = true
-                save()
-                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-            }
-            onCommand("/park") { msg, _ ->
-                drive[msg.chat.id] = false
-                save()
-                sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
-            }
-            onCommand("/is_drive") { msg, _ ->
-                sendMessage(msg.chat.id, drive[msg.chat.id].toString(), replyTo = msg.message_id)
             }
         }
     }

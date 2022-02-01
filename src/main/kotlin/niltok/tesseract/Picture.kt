@@ -1,23 +1,20 @@
-package goldimax.tesseract
+package niltok.tesseract
 
-import com.beust.klaxon.JsonArray
-import com.beust.klaxon.JsonObject
 import com.elbekD.bot.types.InlineKeyboardButton
 import com.elbekD.bot.types.InlineKeyboardMarkup
 import com.elbekD.bot.types.Message
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
-import net.mamoe.mirai.message.data.PlainText
+import net.mamoe.mirai.message.data.ImageType
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
-import org.apache.log4j.LogManager.getLogger
+import net.mamoe.mirai.utils.MiraiLogger
 import java.io.File
 import java.net.URL
 import java.util.*
@@ -33,7 +30,6 @@ object Picture {
         var page = 0
         override suspend fun handle(id: UUID, message: MessageEvent) {
             val cmd = message.message.plainText().trim()
-            checkNotNull(cmd) { "Enter 'next', 'prev' or page num." }
             when (cmd) {
                 "next" -> {
                     check(page < (dic.size - 1) / 20) { "Out of upper bound." }
@@ -82,22 +78,22 @@ object Picture {
         }
     }
 
-    private val json: Map<String, List<Map<String, String>>>? =
-        getJson("core", "key", "picture", "json")
+    private fun getDic(g: IMGroup): MutableMap<String, String> =
+        db().hget("core:image:index", SJson.encodeToString(g))?.let {
+            SJson.decodeFromString(it)
+        } ?: mutableMapOf()
 
-    private val dic = json?.let{ it.map { (k, v) -> k.toLong() to v.map {
-        (it["name"] ?: error("wrong config, pic no 'name'")) to
-                (it["uuid"] ?: error("wrong config, pic no 'uuid'"))
-    }.toMap().toMutableMap() }.toMap().toMutableMap() } ?: mutableMapOf()
-
-    private val logger = getLogger("Picture")
-
-    private fun save() {
-        putJson("core", "key", "picture", "json",
-            JsonObject(dic.mapKeys { it.key.toString() }
-                .mapValues { JsonArray(it.value.map {
-                    JsonObject(mapOf("name" to it.key, "uuid" to it.value)) }) }))
+    private fun setDic(g: IMGroup, m: MutableMap<String, String>) {
+        db().hset("core:image:index", SJson.encodeToString(g), SJson.encodeToString(m))
     }
+
+    private fun updateDic(g: IMGroup, f: (MutableMap<String, String>) -> Unit) {
+        val m = getDic(g)
+        f(m)
+        setDic(g, m)
+    }
+
+    private val logger = MiraiLogger.Factory.create(this::class)
 
     private fun handleRemove(): suspend GroupMessageEvent.(String) -> Unit = {
         error {
@@ -105,12 +101,11 @@ object Picture {
 
             val picName = message.plainText().removePrefix("plz forget").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
-            dic[source.group.id]?.let { dic ->
+            updateDic(group.toIMGroup()) { dic ->
                 checkNotNull(dic[picName]) { "Cannot find picture called $picName" }
                 ImageMgr.remove(UUID.fromString(dic[picName]))
                 dic.remove(picName)
-                save()
-            } ?: reply("Cannot find picture called $picName")
+            }
             quoteReply("Done.")
         }
     }
@@ -119,13 +114,8 @@ object Picture {
         error {
             val picName = message.plainText()
                 .removePrefix("look up").trim().toRegex()
-            val list = mutableListOf<String>()
-            dic[source.group.id]?.let { dic ->
-                list.addAll(dic.keys
-                    .filter { picName in it })
-            }
-            dic[Connections.findTGByQQ(source.group.id)]?.let { dic ->
-                list.addAll(dic.keys.filter { picName in it })
+            val list = group.toIMGroup().allConnection().flatMap { g ->
+                getDic(g).keys.filter { picName in it }
             }
             val names = list
                 .take(20)
@@ -144,7 +134,9 @@ object Picture {
             val picName = message.plainText().removePrefix("say").trim()
             check(picName.isNotEmpty()) { "Pardon?" }
             val reg = picName.toRegex()
-            val maybe = dic[source.group.id]?.filter { it.key.contains(reg) }?.values?.randomOrNull()
+            val maybe = group.toIMGroup().allConnection().flatMap {
+                getDic(it).mapNotNull { (u, v) -> if (reg in u) v else null }
+            }.randomOrNull()
             checkNotNull(maybe) { "Cannot find picture called $picName." }
             val img = ImageMgr[UUID.fromString(maybe)]!!.inputStream().uploadAsImage(group)
             val qid = reply(img).source
@@ -159,23 +151,22 @@ object Picture {
         error {
             val picName = message.plainText().removePrefix("remember").trim()
             check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
-            checkNull(dic[source.group.id]
-                ?.get(picName)) { "There is already a picture called $picName." }
-            val picPath = UUID.randomUUID()
+            checkNull(getDic(group.toIMGroup())[picName]) { "There is already a picture called $picName." }
             val pic = message[Image]
             checkNotNull(pic) { "Cannot find picture in your message." }
-            ImageMgr[picPath] = pic.bypes()
-            if (dic[source.group.id] == null)
-                dic[source.group.id] = mutableMapOf(picName to picPath.toString())
-            else dic[source.group.id]!![picName] = picPath.toString()
-            save()
+            check(pic.imageType != ImageType.UNKNOWN) { "Fetch picture failed." }
+            check(pic.size < 2 * 1024 * 1024) { "Picture is larger then 2M. Too big to store." }
+            val picPath = ImageMgr.new(pic.bytes())
+            updateDic(group.toIMGroup()) {
+                it[picName] = picPath.toString()
+            }
             quoteReply("Done.")
         }
     }
 
     private fun handleImReq(): suspend GroupMessageEvent.(String) -> Unit = {
         val picName = message.plainText().trim()
-        val maybe = dic[source.group.id]?.get(picName)
+        val maybe = group.toIMGroup().allConnection().mapNotNull { getDic(it)[picName] }.randomOrNull()
         if (maybe != null) {
             val img = ImageMgr[UUID.fromString(maybe)]!!.inputStream().uploadAsImage(group)
             val qid = reply(img).source
@@ -192,12 +183,15 @@ object Picture {
             startsWith("say", onEvent = handleReq())
             startsWith("look up", onEvent = handleSearch())
             startsWith("plz forget", onEvent = handleRemove())
-            startsWith("", onEvent = handleImReq())
-            startsWith("uuid$", true) {
+            startsWith("get pic uuid ", true) {
                 error {
-                    quoteReply(dic[source.group.id]!![it]!!)
+                    group.toIMGroup().allConnection()
+                        .mapNotNull { g -> getDic(g)[it.trim()] }
+                        .joinToString("\n")
+                        .or("Not found.")
                 }
             }
+            always(onEvent = handleImReq())
         }
 
         with(UniBot.tg) {
@@ -205,12 +199,9 @@ object Picture {
                 error(msg) {
                     check(!picName.isNullOrBlank()) { "Pardon?" }
                     val reg = picName.trim().toRegex()
-                    val list = mutableListOf<String>()
-                    list.addAll(dic[msg.chat.id]
-                        ?.filter { it.key.contains(reg) } ?.values ?: emptyList())
-                    list.addAll(dic[Connections.findQQByTG(msg.chat.id)]
-                        ?.filter { it.key.contains(reg) } ?.values ?: emptyList())
-                    val uuid = list.randomOrNull()
+                    val uuid = IMGroup.TG(msg.chat.id).allConnection().flatMap {
+                        getDic(it).mapNotNull { (u, v) -> if (reg in u) v else null }
+                    }.randomOrNull()
                     checkNotNull(uuid) { "Cannot find picture called $picName." }
                     val temp = File(uuid)
                     temp.createNewFile()
@@ -228,11 +219,12 @@ object Picture {
 
             UniBot.tgListener.add {
                 if (it.text.isNullOrBlank()) return@add
-                val maybe = dic[it.chat.id]?.get(it.text?.trim())
-                    ?: dic[Connections.findQQByTG(it.chat.id)]?.get(it.text?.trim())
+                val maybe = IMGroup.TG(it.chat.id).allConnection().firstNotNullOfOrNull { g ->
+                    getDic(g)[it.text]
+                }
                 if (maybe.isNullOrBlank()) return@add
                 val temp = File(maybe)
-                coroutineScope { temp.createNewFile() }
+                doIO { temp.createNewFile() }
                 temp.writeBytes(ImageMgr[UUID.fromString(maybe)]!!)
                 sendPhoto(it.chat.id, temp).whenComplete { t, _ ->
                     val qq = Connections.findQQByTG(it.chat.id)
@@ -247,16 +239,9 @@ object Picture {
             onCommand("/lookup") { msg, search ->
                 logger.debug("lookup with $msg")
                 error(msg) {
-                    val list = mutableListOf<String>()
-                    dic[msg.chat.id]?.let { dic ->
-                        list.addAll(search?.run{
-                            dic.keys.filter { toRegex() in it }
-                        } ?: dic.keys)
-                    }
-                    dic[Connections.findQQByTG(msg.chat.id)]?.let { dic ->
-                        list.addAll(search?.run {
-                            dic.keys.filter { toRegex() in it }
-                        } ?: dic.keys)
+                    val reg = search.orEmpty().trim().toRegex()
+                    val list = IMGroup.TG(msg.chat.id).allConnection().flatMap { g ->
+                        getDic(g).keys.filter { reg in it }
                     }
                     if (list.size <= 20) {
                         val result = list.joinToString("\n").or("Empty.")
@@ -280,12 +265,13 @@ object Picture {
                 error(msg) {
                     testSu(msg)
                     check(!picName.isNullOrBlank()) { "Pardon?" }
-                    val uuid = dic[msg.chat.id]?.get(picName)
+                    val uuid = getDic(IMGroup.TG(msg.chat.id))[picName]
                     checkNotNull(uuid) { "Cannot find picture called $picName." }
 
                     ImageMgr.remove(UUID.fromString(uuid))
-                    dic[msg.chat.id]!!.remove(picName)
-                    save()
+                    updateDic(IMGroup.TG(msg.chat.id)) {
+                        it.remove(picName)
+                    }
                     sendMessage(msg.chat.id, "Done", replyTo = msg.message_id)
                 }
             }
@@ -297,18 +283,16 @@ object Picture {
                 error(msg) {
                     check(msg.chat.id < 0) { "Unsupported for non-group chat." }
                     check(picName.isNotEmpty()) { "How would you call this picture? Please try again." }
-                    checkNull(dic[msg.chat.id]?.get(picName))
+                    checkNull(getDic(IMGroup.TG(msg.chat.id))[picName])
                         { "There is already a picture called $picName." }
-                    val picID = UUID.randomUUID()
                     val pic = msg.photo?.maxByOrNull { it.file_size }?.let {
                         URL(tgFileUrl(it.file_id)).openStream()
                     }?.readAllBytes()
                     checkNotNull(pic) { "Cannot find picture in your message." }
-                    ImageMgr[picID] = pic
-                    if (dic[msg.chat.id] == null)
-                        dic[msg.chat.id] = mutableMapOf(picName to picID.toString())
-                    else dic[msg.chat.id]!![picName] = picID.toString()
-                    save()
+                    val picID = ImageMgr.new(pic)
+                    updateDic(IMGroup.TG(msg.chat.id)) {
+                        it[picName] = picID.toString()
+                    }
                     sendMessage(msg.chat.id, "Done.", replyTo = msg.message_id)
                 }
             }

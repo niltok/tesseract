@@ -1,4 +1,4 @@
-package goldimax.tesseract
+package niltok.tesseract
 
 import com.elbekD.bot.types.Message
 import net.mamoe.mirai.event.events.MessageEvent
@@ -29,13 +29,13 @@ object TransactionManager {
     data class TGActionData(val id: UUID, val time: Date, val action: TGTransaction)
     private val tgTransactions = mutableListOf<TGActionData>()
 
-    data class TGAttachData(val id: UUID, val time: Date, val msg: Int)
+    data class TGAttachData(val id: UUID, val time: Date, val msg: Long)
     private val tgAttached = mutableListOf<TGAttachData>()
 
     data class TGKActionData(val id: UUID, val time: Date, val action: TGKeys)
     private val tgKeys = mutableListOf<TGKActionData>()
 
-    data class TGKAttachData(val id: UUID, val time: Date, val msg: Int)
+    data class TGKAttachData(val id: UUID, val time: Date, val msg: Long)
     private val tgKAttached = mutableListOf<TGKAttachData>()
 
     private fun update() {
@@ -96,21 +96,21 @@ object TransactionManager {
         qqAttached.add(QQAttachData(id, Date(), ms))
     }
 
-    fun attach(msg: Int, id: UUID) {
+    fun attach(msg: Long, id: UUID) {
         tgAttached.add(TGAttachData(id, Date(), msg))
     }
 
-    fun attachK(msg: Int, id: UUID) {
+    fun attachK(msg: Long, id: UUID) {
         tgKAttached.add(TGKAttachData(id, Date(), msg))
     }
 
     init {
         UniBot.qq.eventChannel.subscribeMessages {
-            startsWith("") {
+            always {
                 error {
                     update()
-                    val at = message[QuoteReply]?.source ?: return@startsWith
-                    val id = qqAttached.firstOrNull { it.ms eq at }?.id ?: return@startsWith
+                    val at = message[QuoteReply]?.source ?: return@always
+                    val id = qqAttached.firstOrNull { it.ms eq at }?.id ?: return@always
                     val ta = qqTransactions.firstOrNull { it.id == id }?.action
                     if (ta == null) quoteReply("Transaction expired.")
                     else ta.handle(id, this)

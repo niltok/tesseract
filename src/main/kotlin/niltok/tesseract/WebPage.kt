@@ -1,15 +1,12 @@
-package goldimax.tesseract
+package niltok.tesseract
 
 import com.ruiyun.jvppeteer.core.Puppeteer
 import com.ruiyun.jvppeteer.core.browser.BrowserFetcher
-import com.ruiyun.jvppeteer.core.page.JSHandle
 import com.ruiyun.jvppeteer.options.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.async
-import org.apache.log4j.BasicConfigurator
 import java.io.File
-import java.net.URL
 import java.util.*
 import kotlin.system.measureTimeMillis
 
@@ -32,9 +29,14 @@ object WebPage {
         option
     }
 
-    val latexPage = run {
+    val latexMutex = Mutex()
+    val latexPage = runBlocking {
         val page = browser.newPage()!!
         val version = "0.13.13"
+        latexMutex.lock()
+        page.onLoad {
+            runBlocking { latexMutex.unlock() }
+        }
         //language=HTML
         page.setContent("""<html>
             <head>
@@ -80,10 +82,6 @@ object WebPage {
                 as="font" type="font/woff2" crossorigin>
             <script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/katex.min.js"></script>
             <link href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/katex.min.css" rel="stylesheet">
-            <script>
-                let loaded = false
-                document.onload = e => { loaded = true }
-            </script>
             <style>
                 .box {
                     padding: 1em; 
@@ -99,60 +97,73 @@ object WebPage {
         )
         page
     }
-    val latexMutex = Mutex()
 
-    suspend fun renderTex(tex : String) : ByteArray {
-        latexPage.waitForFunction("""
-            typeof(loaded) != 'undefined' && loaded
+    suspend fun renderTex(tex : String) : ByteArray = latexMutex.withLock {
+        println("Render Tex $tex")
+        val id = UUID.randomUUID().toString()
+        latexPage.evaluate("""
+            (function () {
+                let e = document.createElement('div')
+                e.id = "box$id"
+                e.className = "box"
+                e.innerHTML = katex.renderToString(String.raw`$tex`, {displayMode: true})
+                document.body.append(e)
+            })()
         """)
-        return latexMutex.withLock {
-            val id = UUID.randomUUID().toString()
-            latexPage.evaluate("""
-                (function () {
-                    let e = document.createElement('div')
-                    e.id = "box$id"
-                    e.className = "box"
-                    e.innerHTML = katex.renderToString(String.raw`$tex`, {throwOnError: false})
-                    document.body.append(e)
-                })()
-            """)
-            latexPage.waitForSelector("#box$id > .katex")
-            val katex = latexPage.waitForSelector("#box$id")
-            val image = Base64.getDecoder().decode(katex.screenshot(screenshotOptions))!!
-            latexPage.evaluate("""
-                document.querySelector("#box$id").remove()
-            """)
-            image
-        }
+        println("Tex added to DOM")
+        doIO { latexPage.waitForSelector("#box$id > .katex-display") }
+        val katex = doIO { latexPage.waitForSelector("#box$id") }
+        println("Screenshotting Tex")
+        val image = Base64.getDecoder().decode(doIO { katex.screenshot(screenshotOptions) })!!
+        latexPage.evaluate("""
+            document.querySelector("#box$id").remove()
+        """)
+        println("Tex Rendered")
+        image
     }
 
-    fun renderTweet(url : String) : ByteArray {
-        val page = browser.newPage()
+
+    suspend fun renderTweet(url : String) : ByteArray {
+        println("Render Tweet: $url")
+        val page = browser.newPage()!!
         page.setViewport(
             Viewport(1080, 5000, 1.5,
             false, false, false)
         )
-        page.goTo(url)
-        page.waitForSelector("article")
-        val tweet = page.waitForFunction("""
-            (() => 
-                Array.from(document.querySelectorAll("article")).find(e => 
-                    typeof(e.attributes.tabindex) == 'undefined')
-            )
-        """)?.asElement() ?: throw Throwable("not tweet")
-        val image = Base64.getDecoder().decode(tweet.screenshot(screenshotOptions))
-        page.close()
+        println("Page opened")
+        doIO { page.goTo(url) }
+        println("Tweet Loading")
+        delay(5000)
+        println("Tweet Loaded")
+        val tweet = doIO {
+            page.waitForFunction("""
+                (() => 
+                    Array.from(document.querySelectorAll("article")).find(e => 
+                        typeof(e.attributes.tabindex) == 'undefined')
+                )
+            """)
+        }?.asElement() ?: throw Throwable("not tweet")
+        val image = Base64.getDecoder().decode(doIO { tweet.screenshot(screenshotOptions) })
+        doIO { page.close() }
+        println("Tweet Rendered")
         return image
     }
 }
 
 suspend fun main() {
-    BasicConfigurator.configure()
-    File("tex.png").writeBytes(WebPage.renderTex("""
-        \LaTeX\texttt{LaTeX}\textit{LaTeX}\textrm{LaTeX}
-    """))
-    File("tweet.png").writeBytes(WebPage.renderTweet("""
+    File("tex.png").writeBytes(
+        WebPage.renderTex(
+            """
+        f \colon A \to B
+    """
+        )
+    )
+    File("tweet.png").writeBytes(
+        WebPage.renderTweet(
+            """
         https://twitter.com/NiltokotliN/status/1364286677305368576
-    """.trimIndent()))
+    """.trimIndent()
+        )
+    )
     println("Done.")
 }
