@@ -19,7 +19,7 @@ object Connections {
                 }
             } else false
         }?.let { when (it) {
-            is Connection.GroupForward -> it.groups.firstNotNullOf { if (it is IMGroup.QQ) it.id else null }
+            is Connection.GroupForward -> it.groups.firstNotNullOfOrNull { if (it is IMGroup.QQ) it.id else null }
             else -> null
         } }
     fun findTGByQQ(qq: Long): Long? =
@@ -31,7 +31,7 @@ object Connections {
                 }
             } else false
         }?.let { when (it) {
-            is Connection.GroupForward -> it.groups.firstNotNullOf { if (it is IMGroup.TG) it.id else null }
+            is Connection.GroupForward -> it.groups.firstNotNullOfOrNull { if (it is IMGroup.TG) it.id else null }
             else -> null
         } }
     fun save() {

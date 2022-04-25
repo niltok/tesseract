@@ -6,23 +6,33 @@ import com.ruiyun.jvppeteer.options.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.util.*
+import kotlin.math.floor
 import kotlin.system.measureTimeMillis
 
-fun <T> printTime(f : () -> T) : T {
+inline fun <T> printTime(prefix: String, f : () -> T) : T {
     var res : T
-    println(measureTimeMillis { res = f() })
+    println("[$prefix Time]: ${ measureTimeMillis { res = f() } }ms")
     return res
 }
 
+var headless = true
+
 object WebPage {
     val browser = run {
-        BrowserFetcher.downloadIfNotExist(null)
-        Puppeteer.launch(LaunchOptionsBuilder().withArgs(listOf("--no-sandbox")).withHeadless(true).build())
+        Puppeteer.launch(LaunchOptionsBuilder()
+            .withExecutablePath("/usr/bin/chromium")
+            .withArgs(listOf("--no-sandbox"))
+            .withHeadless(headless)
+            .build())
     }
 
-    val screenshotOptions = run {
+    val jpgShot = run {
         val option = ScreenshotOptions()
         option.type = "jpeg"
         option.quality = 95
@@ -32,7 +42,7 @@ object WebPage {
     val latexMutex = Mutex()
     val latexPage = runBlocking {
         val page = browser.newPage()!!
-        val version = "0.13.13"
+        val version = "0.15.2"
         latexMutex.lock()
         page.onLoad {
             runBlocking { latexMutex.unlock() }
@@ -40,48 +50,48 @@ object WebPage {
         //language=HTML
         page.setContent("""<html>
             <head>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_AMS-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_AMS-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Caligraphic-Bold.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Caligraphic-Bold.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Caligraphic-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Caligraphic-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Fraktur-Bold.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Fraktur-Bold.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Fraktur-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Fraktur-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Main-Bold.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Main-Bold.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Main-BoldItalic.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Main-BoldItalic.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Main-Italic.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Main-Italic.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Main-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Main-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Math-BoldItalic.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Math-BoldItalic.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Math-Italic.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Math-Italic.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_SansSerif-Bold.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_SansSerif-Bold.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_SansSerif-Italic.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_SansSerif-Italic.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_SansSerif-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_SansSerif-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Script-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Script-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Size1-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Size1-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Size2-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Size2-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Size3-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Size3-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Size4-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Size4-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/fonts/KaTeX_Typewriter-Regular.woff2" 
+            <link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@$version/dist/fonts/KaTeX_Typewriter-Regular.woff2" 
                 as="font" type="font/woff2" crossorigin>
-            <script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/katex.min.js"></script>
-            <link href="https://cdn.bootcdn.net/ajax/libs/KaTeX/$version/katex.min.css" rel="stylesheet">
+            <script async src="https://cdn.jsdelivr.net/npm/katex@$version/dist/katex.min.js"></script>
+            <link href="https://cdn.jsdelivr.net/npm/katex@$version/dist/katex.min.css" rel="stylesheet">
             <style>
                 .box {
                     padding: 1em; 
@@ -114,7 +124,7 @@ object WebPage {
         doIO { latexPage.waitForSelector("#box$id > .katex-display") }
         val katex = doIO { latexPage.waitForSelector("#box$id") }
         println("Screenshotting Tex")
-        val image = Base64.getDecoder().decode(doIO { katex.screenshot(screenshotOptions) })!!
+        val image = Base64.getDecoder().decode(doIO { katex.screenshot(jpgShot) })!!
         latexPage.evaluate("""
             document.querySelector("#box$id").remove()
         """)
@@ -122,6 +132,98 @@ object WebPage {
         image
     }
 
+    private const val gfps = 30
+    val lottieMutex = Mutex()
+    val lottiePage = runBlocking {
+        val page = browser.newPage()!!
+        lottieMutex.lock()
+        page.onLoad { lottieMutex.unlock() }
+        //language=HTML
+        page.setContent(
+            """
+            <html>
+            <head>
+            <script src="https://cdn.jsdelivr.net/npm/lottie-web@5.8.1/build/player/lottie.min.js"></script>
+            <script async src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+            </head>
+            <body>
+            <script>
+            let gif_worker = null;
+            function renderGif(gif) {
+                return new Promise((res, rej) => {
+                    gif.on("finished", blob => {
+                        let reader = new FileReader()
+                        reader.onload = e => {
+                            res(e.target.result)
+                        }
+                        reader.onerror = ev => rej(ev)
+                        reader.readAsDataURL(blob)
+                    })
+                    gif.render()
+                })
+            }
+            function wait(ms) {
+                return new Promise((res, rej) => {
+                    let r = setTimeout(res, ms)
+                    if (r === 0) rej(r)
+                })
+            }
+            async function genGif(script, fps, scale) {
+                if (!scale) scale = 1
+                let root = document.createElement('div')
+                document.body.append(root)
+                root.style.height = script['h'] * scale
+                root.style.width = script['w'] * scale
+                root.style.position = 'absolute'
+                let animation = lottie.loadAnimation({
+                    container: root,
+                    renderer: 'canvas',
+                    loop: false,
+                    autoplay: false,
+                    animationData: script
+                })
+                let canvas = root.firstElementChild
+                let duration = animation.getDuration()
+                let fr = script['fr']
+                if (!fps) fps = fr
+                if (gif_worker == null) {
+                    gif_worker = window.URL.createObjectURL(await (await 
+                        fetch("https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js")).blob());
+                }
+                let gif = new GIF({
+                    workers: 4,
+                    quality: 30,
+                    workerScript: gif_worker,
+                    transparent: "#000000"
+                })
+                for (let frame = 0; frame < duration * fps; frame++) {
+                    animation.goToAndStop(Math.floor(frame * fr / fps), true)
+                    await wait(5)
+                    gif.addFrame(canvas, { delay: 1000 / fps, copy: true })
+                }
+                let res = await renderGif(gif)
+                animation.destroy()
+                root.remove()
+                return res
+            }
+            </script>
+            </body>
+            </html>
+        """.trimIndent())
+        page.setViewport(
+            Viewport(5000, 5000, 1,
+                false, false, false)
+        )
+        page
+    }
+
+    suspend fun renderLottie(script: String) : ByteArray {
+        lottieMutex.lock()
+        lottieMutex.unlock()
+        return lottiePage.evaluate("""(async () => await genGif($script, 30, 0.5))""").toString().let {
+            Base64.getDecoder().decode(it.removePrefix("data:image/gif;base64,"))!!
+        }
+    }
 
     suspend fun renderTweet(url : String) : ByteArray {
         println("Render Tweet: $url")
@@ -143,7 +245,7 @@ object WebPage {
                 )
             """)
         }?.asElement() ?: throw Throwable("not tweet")
-        val image = Base64.getDecoder().decode(doIO { tweet.screenshot(screenshotOptions) })
+        val image = Base64.getDecoder().decode(doIO { tweet.screenshot(jpgShot) })!!
         doIO { page.close() }
         println("Tweet Rendered")
         return image
@@ -151,19 +253,12 @@ object WebPage {
 }
 
 suspend fun main() {
-    File("tex.png").writeBytes(
-        WebPage.renderTex(
-            """
-        f \colon A \to B
-    """
-        )
-    )
-    File("tweet.png").writeBytes(
-        WebPage.renderTweet(
-            """
-        https://twitter.com/NiltokotliN/status/1364286677305368576
-    """.trimIndent()
-        )
+    headless = true
+    renderTgs(File("lottie.tgs").inputStream())
+    File("lottie.gif").writeBytes(
+        printTime("Total") {
+            renderTgs(File("lottie.tgs").inputStream())
+        }
     )
     println("Done.")
 }

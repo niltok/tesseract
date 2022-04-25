@@ -5,10 +5,10 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.*
 
 plugins {
     java
-    kotlin("jvm") version "1.5.31"
-    kotlin("plugin.serialization") version "1.5.31"
+    kotlin("jvm") version "1.6.0"
+    kotlin("plugin.serialization") version "1.6.0"
     application
-    id("com.github.johnrengelman.shadow") version "5.2.0"
+    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
 apply(plugin = "com.github.johnrengelman.shadow")
@@ -27,18 +27,20 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
-    implementation("net.mamoe:mirai-core:2.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
+    implementation("net.mamoe:mirai-core:2.10.0")
     implementation("com.github.elbekD:kt-telegram-bot:1.4.1")
     //implementation("dev.inmo:tgbotapi:0.37.1")
     compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
-    implementation("com.jcabi:jcabi-manifests:0.7.5")
+    implementation("com.jcabi:jcabi-manifests:1.1")
     implementation(fileTree("src/main/resources/libs"))
     implementation("org.jsoup:jsoup:1.13.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.0")
-    implementation("io.github.fanyong920:jvppeteer:1.1.3")
-    implementation("org.apache.logging.log4j:log4j-core:2.14.1")
+    implementation("io.github.fanyong920:jvppeteer:1.1.4")
+    implementation("org.apache.logging.log4j:log4j-core:2.17.0")
     implementation("io.lettuce:lettuce-core:6.1.5.RELEASE")
+    implementation("com.squareup:gifencoder:0.10.1")
+    implementation("io.ktor:ktor-server-netty:2.0.0-beta-1")
     testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 
@@ -55,7 +57,7 @@ tasks {
 }
 
 application {
-    mainClassName = MAIN_CLASS
+    mainClass.set(MAIN_CLASS)
 }
 
 tasks.withType<JavaExec> {

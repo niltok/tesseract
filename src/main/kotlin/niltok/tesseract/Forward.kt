@@ -1,6 +1,7 @@
 package niltok.tesseract
 
 import com.elbekD.bot.Bot
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -8,6 +9,7 @@ import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
+import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import net.mamoe.mirai.utils.MiraiLogger
 import java.io.ByteArrayInputStream
@@ -32,62 +34,80 @@ object Forward {
 
             var reply: Long? = null
             val imgs = mutableListOf<String>()
+            val files = mutableListOf<String>()
             suspend fun parseMsg(message: MessageChain): String {
                 val msgText = StringBuilder()
-                message.forEach { msg ->
-                    when (msg) {
-                        is FlashImage -> imgs.add(msg.image.queryUrl())
-                        is Image -> imgs.add(msg.queryUrl())
-                        else -> {
-                            msgText.append(
-                                when (msg) {
-                                    is PlainText -> msg.content
-                                    is At -> msg.getDisplay(group) + " "
-                                    is AtAll -> AtAll.display + " "
-                                    is QuoteReply -> {
-                                        reply = History.getTG(msg.source)
-                                        if (reply == null)
-                                            String.format(
-                                                "[Reply\uD83D\uDC46%s: %s]",
-                                                subject.members[msg.source.fromId]?.displayName(),
-                                                msg.source.originalMessage.contentToString()
-                                            )
-                                        else ""
-                                    }
-                                    is Face -> msg.contentToString()
-                                    is ForwardMessage ->
-                                        "[Forward] {\n ${ // TODO: msg chain
-                                            msg.nodeList.joinToString("\n") { "  ${it.senderName}: ${it.messageChain}" }
-                                        } }"
-                                    is RichMessage -> {
-                                        val json = SJson.parseToJsonElement(msg.content).jsonObject
-                                        json["meta"]?.jsonObject?.values?.map { it.jsonObject }
-                                            ?.joinToString("\n") {
-                                                "<a href='${
-                                                    it["qqdocurl"]?.jsonPrimitive?.contentOrNull
-                                                }'>${
-                                                    it["desc"]?.jsonPrimitive?.contentOrNull
-                                                }</a>"
-                                            } ?: ""
-                                    }
-                                    else -> msg.contentToString()
-                                }
-                            )
+                message.forEach { msgText.append(
+                    when (it) {
+                        is FlashImage -> {
+                            imgs.add(it.image.queryUrl())
+                            ""
                         }
-                    }
+                        is Image -> {
+                            imgs.add(it.queryUrl())
+                            ""
+                        }
+                        is PlainText -> it.content
+                        is At -> it.getDisplay(group) + " "
+                        is AtAll -> AtAll.display + " "
+                        is QuoteReply -> {
+                            reply = History.getTG(it.source)
+                            if (reply == null)
+                                String.format(
+                                    "[Reply\uD83D\uDC46%s: %s]",
+                                    subject.members[it.source.fromId]?.displayName(),
+                                    it.source.originalMessage.contentToString()
+                                )
+                            else ""
+                        }
+                        is Face -> it.contentToString()
+                        is ForwardMessage ->
+                            "[Forward] {\n ${ // TODO: msg chain
+                                it.nodeList.joinToString("\n") { "  ${it.senderName}: ${
+                                    runBlocking { parseMsg(it.messageChain) }
+                                }" }
+                            } }"
+                        is FileMessage -> {
+                            (it.takeIf { it.size <= 2 * 1024 * 1024 } ?: return "[Large File ${it.name}]")
+                                .toAbsoluteFile(group)?.getUrl()?.let { url ->
+                                    files.add(url)
+                                    "[File ${it.name}]"
+                                } ?: "[Broken File ${it.name}]"
+                        }
+                        is RichMessage -> {
+                            val json = SJson.parseToJsonElement(it.content).jsonObject
+                            json["meta"]?.jsonObject?.values?.map { it.jsonObject }
+                                ?.joinToString("\n") {
+                                    "<a href='${
+                                        it["qqdocurl"]?.jsonPrimitive?.contentOrNull
+                                    }'>${
+                                        it["desc"]?.jsonPrimitive?.contentOrNull
+                                    }</a>"
+                                } ?: ""
+                        }
+                        else -> it.contentToString()
+                    })
                 }
                 return msgText.toString()
             }
 
             val caption = String.format("<b>%s</b>: %s", sender.displayName(), parseMsg(message))
-            when (imgs.size) {
-                0 -> UniBot.tg.sendMessage(tGroup, caption, replyTo = reply, parseMode = "html")
-                    .whenComplete { t, u -> logger.info(u); History.insert(source, t) }
-                1 -> UniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply, parseMode = "html")
+            when {
+                imgs.isEmpty() && files.isEmpty() ->
+                    UniBot.tg.sendMessage(tGroup, caption, replyTo = reply, parseMode = "html")
                     .whenComplete { t, _ -> History.insert(source, t) }
+                imgs.size == 1 && files.isEmpty() ->
+                    UniBot.tg.sendPhoto(tGroup, imgs.first(), caption, replyTo = reply, parseMode = "html")
+                    .whenComplete { t, _ -> History.insert(source, t) }
+                imgs.isEmpty() && files.size == 1 ->
+                    UniBot.tg.sendDocument(tGroup, files.first(), caption = caption, replyTo = reply, parseMode = "html")
+                        .whenComplete { t, _ -> History.insert(source, t) }
                 else -> UniBot.tg.sendMediaGroup(tGroup, imgs.map {
-                        UniBot.tg.mediaPhoto(it, caption =  caption, parseMode = "html") }, replyTo = reply)
-                    .whenComplete{ t, _ -> History.insert(source, t.first()) }
+                    UniBot.tg.mediaPhoto(it, caption =  caption, parseMode = "html")
+                } + files.map {
+                    UniBot.tg.mediaDocument(it, caption = caption, parseMode = "html")
+                }, replyTo = reply)
+                    .whenComplete { t, _ -> History.insert(source, t.first()) }
             }
         }
 
@@ -127,22 +147,26 @@ object Forward {
                 msgs.add(image)
             }
 
+            msg.document?.let {
+                if (it.file_size > 2 * 1024 * 1024) {
+                    msgs.add(PlainText("[Large File ${it.file_name}]"))
+                    return@let
+                }
+                val file = URL(tgFileUrl(it.file_id)).openStream().toExternalResource().toAutoCloseable()
+                msgs.add(qGroup.files.uploadNewFile("/${msg.displayName()}-${it.file_name}", file).toMessage())
+            }
+
             msg.sticker?.let {
                 val filePath = tgFileUrl(it.file_id)
                 if (filePath.endsWith(".tgs")) {
-                    // TODO: Support .tgs format animated sticker
-                    msgs.add(PlainText(" Unsupported .tgs format animated sticker"))
+                    val image = ByteArrayInputStream(renderTgs(URL(filePath).openStream())).uploadAsImage(qGroup)
+                    msgs.add(image)
                 } else {
                     val output = ByteArrayOutputStream()
                     ImageIO.write(ImageIO.read(URL(filePath).openStream()), "png", output)
                     val image = ByteArrayInputStream(output.toByteArray()).uploadAsImage(qGroup)
                     msgs.add(image)
                 }
-            }
-
-            msg.animation?.let {
-                val image = URL(tgFileUrl(it.file_id)).openStream().uploadAsImage(qGroup)
-                msgs.add(image)
             }
 
             msg.entities?.forEach {

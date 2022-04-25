@@ -67,8 +67,7 @@ object QQOther {
             case("mention all") reply (AtAll)
             startsWith("tex#", true) {
                 error {
-                    val img = WebPage.renderTex(it).inputStream().uploadAsImage(subject)
-                    subject.sendMessage(img)
+                    subject.sendMessage(WebPage.renderTex(it).inputStream().uploadAsImage(subject))
                 }
             }
             always {

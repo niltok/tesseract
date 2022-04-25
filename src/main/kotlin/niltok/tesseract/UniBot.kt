@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.alsoLogin
+import java.io.File
 import java.util.concurrent.Executors
 import com.elbekD.bot.Bot as tgBot
 
@@ -19,7 +20,8 @@ const val envName = "env"
 data class QQBotInfo(val id: Long, val pwd: String)
 
 object UniBot {
-    val redis = RedisClient.create("redis://localhost")!!
+    val env = File(envName).readLines()
+    val redis = RedisClient.create(env[0])!!
     val redisClient = redis.connect()!!
     val redisClientRaw = redis.connectRaw()
 

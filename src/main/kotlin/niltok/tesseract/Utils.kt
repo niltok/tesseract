@@ -23,18 +23,28 @@ import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.MessageSerializers
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
-import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
+import java.io.InputStream
+import java.io.InputStreamReader
 import java.net.URL
 import java.time.Duration
 import java.time.Instant
 import java.util.*
+import java.util.zip.GZIPInputStream
 import kotlin.concurrent.timerTask
 import net.mamoe.mirai.message.data.Message as QMsg
 
 val SJson = Json {
     serializersModule = Json.serializersModule + MessageSerializers.serializersModule
     ignoreUnknownKeys = true
+}
+
+suspend fun renderTgs(tgs: InputStream): ByteArray {
+    val gzip = withContext(Dispatchers.IO) {
+        GZIPInputStream(tgs)
+    }
+    val script = InputStreamReader(gzip).readText()
+    return WebPage.renderLottie(script)
 }
 
 fun RedisClient.connectRaw(): StatefulRedisConnection<String, ByteArray> =
