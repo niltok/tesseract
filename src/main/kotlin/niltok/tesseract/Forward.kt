@@ -117,7 +117,9 @@ object Forward {
             logger.debug("receive tg ${msg.text}")
             val qq = Connections.findQQByTG(msg.chat.id)
             logger.info("transferring to ${msg.chat.id}")
-            if (qq == null || !(IMGroup.TG(msg.chat.id) transfer IMGroup.QQ(qq))) {
+            if (qq == null ||
+                !(IMGroup.TG(msg.chat.id) transfer IMGroup.QQ(qq)) && msg.text?.contains("#SFQ") == false ||
+                msg.text?.contains("#NSFQ") == true) {
                 return@lambda
             }
             val qGroup = UniBot.qq.groups[qq] ?: return@lambda

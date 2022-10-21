@@ -5,8 +5,8 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.*
 
 plugins {
     java
-    kotlin("jvm") version "1.6.0"
-    kotlin("plugin.serialization") version "1.6.0"
+    kotlin("jvm") version "1.7.20"
+    kotlin("plugin.serialization") version "1.7.20"
     application
     id("com.github.johnrengelman.shadow") version "7.1.2"
 }
@@ -17,6 +17,7 @@ apply(plugin = "java")
 group = "niltok.tesseract"
 version = "Rolling"
 val MAIN_CLASS = "niltok.tesseract.AppKt"
+val exposedVersion: String by project
 
 repositories {
     // maven("https://mirrors.huaweicloud.com/repository/maven/")
@@ -27,20 +28,23 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
-    implementation("net.mamoe:mirai-core:2.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation("net.mamoe:mirai-core:2.12.2")
     implementation("com.github.elbekD:kt-telegram-bot:1.4.1")
+    implementation("io.ktor:ktor-server-netty:2.1.2")
     //implementation("dev.inmo:tgbotapi:0.37.1")
-    compileOnly("com.github.jengelman.gradle.plugins:shadow:5.2.0")
-    implementation("com.jcabi:jcabi-manifests:1.1")
+    implementation("com.jcabi:jcabi-manifests:1.2.1")
     implementation(fileTree("src/main/resources/libs"))
-    implementation("org.jsoup:jsoup:1.13.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.0")
-    implementation("io.github.fanyong920:jvppeteer:1.1.4")
-    implementation("org.apache.logging.log4j:log4j-core:2.17.0")
-    implementation("io.lettuce:lettuce-core:6.1.5.RELEASE")
+    implementation("org.jsoup:jsoup:1.15.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+    implementation("io.github.fanyong920:jvppeteer:1.1.5")
+    implementation("org.apache.logging.log4j:log4j-core:2.19.0")
+    implementation("io.lettuce:lettuce-core:6.2.1.RELEASE")
+    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+    implementation("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.9")
     implementation("com.squareup:gifencoder:0.10.1")
-    implementation("io.ktor:ktor-server-netty:2.0.0-beta-1")
     testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 

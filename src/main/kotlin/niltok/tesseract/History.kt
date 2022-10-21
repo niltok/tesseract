@@ -10,11 +10,12 @@ object History {
 
     private data class Msg(val qqID: MessageSource, val tgID: TGID, val time: Date = Date())
 
-    private val timeTable = mutableListOf<Msg>()
+    private val timeTable : MutableList<Msg> = LinkedList<Msg>()
 
     private fun update() {
         while (timeTable.isNotEmpty() &&
-            timeTable.first().time.toInstant() + Duration.ofDays(1) < Date().toInstant()) {
+            (timeTable.first().time.toInstant() + Duration.ofDays(30) < Date().toInstant() ||
+            timeTable.size > 10000)) {
             timeTable.removeFirst()
         }
     }

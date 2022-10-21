@@ -31,22 +31,22 @@ object WebHook {
                             is HeaderVar -> it.variable of headers
                             is JsonVar -> it.variable of json
                         } == it.data
-                    } ?.body?.apply(headers, json)
+                    }?.body?.apply(headers, json)
                 }
             }
         }
 
         @Serializable
         @SerialName("WebHook.Template.Text")
-        data class Text(val text: String): Node()
+        data class Text(val text: String) : Node()
 
         @Serializable
         @SerialName("WebHook.Template.Var")
-        sealed class Var: Node()
+        sealed class Var : Node()
 
         @Serializable
         @SerialName("WebHook.Template.HeaderVar")
-        data class HeaderVar(val name: String): Var() {
+        data class HeaderVar(val name: String) : Var() {
             infix fun of(headers: Headers): String? {
                 return headers[name]
             }
@@ -54,7 +54,7 @@ object WebHook {
 
         @Serializable
         @SerialName("WebHook.Template.JsonVar")
-        data class JsonVar(val path: List<String>): Var() {
+        data class JsonVar(val path: List<String>) : Var() {
             infix fun of(json: JsonElement): String? {
                 return path.fold<String, JsonElement?>(json) { elem, s ->
                     elem?.jsonObject?.get(s)
@@ -67,14 +67,14 @@ object WebHook {
 
         @Serializable
         @SerialName("WebHook.Template.Compose")
-        data class Compose(val list: List<Node>): Node()
+        data class Compose(val list: List<Node>) : Node()
 
         @Serializable
         data class Case(val variable: Var, val data: String?, val body: Node)
 
         @Serializable
         @SerialName("WebHook.Template.When")
-        data class When(val cases: List<Case>): Node()
+        data class When(val cases: List<Case>) : Node()
 
         fun apply(headers: Headers, json: JsonElement): String? {
             return template.apply(headers, json)
@@ -89,7 +89,7 @@ object WebHook {
                 if (it == null) call.respondText("id not find", status = HttpStatusCode.NotFound)
             } ?: return@post
             val template = SJson.decodeFromString<Template>(db().hget("webhook:template", templateInfo))
-            template.apply(call.request.headers, SJson.parseToJsonElement(call.receiveText()))?.let {  }
+            template.apply(call.request.headers, SJson.parseToJsonElement(call.receiveText()))?.let { }
             call.respondText("ok")
         }
     }

@@ -6,6 +6,6 @@ import io.ktor.server.routing.*
 
 object WebServer {
     val server = embeddedServer(Netty, port = 8088) {
-        routing {  }
-    } .start()
+        routing { }
+    }.start()
 }

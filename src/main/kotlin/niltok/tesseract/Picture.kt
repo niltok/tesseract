@@ -287,7 +287,7 @@ object Picture {
                         { "There is already a picture called $picName." }
                     val pic = msg.photo?.maxByOrNull { it.file_size }?.let {
                         URL(tgFileUrl(it.file_id)).openStream()
-                    }?.readAllBytes()
+                    }?.readBytes()
                     checkNotNull(pic) { "Cannot find picture in your message." }
                     val picID = ImageMgr.new(pic)
                     updateDic(IMGroup.TG(msg.chat.id)) {

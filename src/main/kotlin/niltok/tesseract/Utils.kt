@@ -14,10 +14,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.plus
-import net.mamoe.mirai.contact.Contact
-import net.mamoe.mirai.contact.Group
-import net.mamoe.mirai.contact.Member
-import net.mamoe.mirai.contact.isAdministrator
+import net.mamoe.mirai.contact.*
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.MessageSerializers
@@ -110,7 +107,8 @@ fun MessageEvent.testGSu() =
 
 fun MessageEvent.testSu() =
     check(SUManager.isSuperuser(IMUser.QQ(sender.id))
-            || this is GroupMessageEvent && sender.isAdministrator()) { "Sorry, you are not superuser or admin." }
+            || this is GroupMessageEvent && (sender.isAdministrator() || sender.isOwner())) {
+        "Sorry, you are not superuser or admin." }
 
 fun testSu(msg: Message) =
     check(SUManager.isSuperuser(IMUser.TG(msg.from!!.id.toLong()))) { "Sorry, you are not superuser." }
@@ -123,7 +121,7 @@ fun Member.displayName() =
     }
 
 suspend fun Image.bytes(): ByteArray = this.let {
-    withContext(Dispatchers.IO) { URL(it.queryUrl()).openStream().readAllBytes() }
+    withContext(Dispatchers.IO) { URL(it.queryUrl()).openStream().readBytes() }
 }
 
 suspend fun tgFileUrl(fileID: String) =
