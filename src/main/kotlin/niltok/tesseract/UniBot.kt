@@ -10,6 +10,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.alsoLogin
+import net.mamoe.mirai.utils.BotConfiguration
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
 import java.util.concurrent.Executors
 import com.elbekD.bot.Bot as tgBot
@@ -21,17 +25,22 @@ data class QQBotInfo(val id: Long, val pwd: String)
 
 object UniBot {
     val env = File(envName).readLines()
-    val redis = RedisClient.create(env[0])!!
-    val redisClient = redis.connect()!!
-    val redisClientRaw = redis.connectRaw()
 
-    val tgToken = db().get("core:tgToken")!!
+    init {
+        Database.connect(env[0], "com.impossibl.postgres.jdbc.PGDriver", env[1], env[2])
+        transaction {
+            SchemaUtils.create(Configs, ConnectInfo, MarkovData, MarkovConfig, PicData, PicIndex, Superusers, Histories)
+        }
+    }
+
+    val tgToken = kvget("core:tgToken")!!
 
     val qq = runBlocking {
-        val row: List<QQBotInfo> = SJson.decodeFromString(db().get("core:qqInfo")!!)
+        val row: List<QQBotInfo> = SJson.decodeFromString(kvget("core:qqInfo")!!)
         BotFactory.newBot(row[0].id, row[0].pwd) {
             fileBasedDeviceInfo()
             highwayUploadCoroutineCount = 5
+            protocol = BotConfiguration.MiraiProtocol.MACOS
         }.alsoLogin()
     }
     val tg = tgBot.createPolling("", tgToken)
@@ -48,10 +57,4 @@ object UniBot {
         qq.join()
     }
 
-    suspend fun send(target: IMChat, msg: List<UniMsgType>): List<IMMsgRef> =
-        when (target) {
-            is IMGroup.QQ -> qq.getGroupOrFail(target.id).send(msg)
-            //is IMGroup.TG -> tgc.getChat(ChatId(target.id)).send(msg)
-            else -> throw Throwable("Unknown IM")
-        }
 }

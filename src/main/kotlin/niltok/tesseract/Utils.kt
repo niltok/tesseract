@@ -21,6 +21,9 @@ import net.mamoe.mirai.message.MessageSerializers
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
+import org.jetbrains.exposed.sql.replace
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.URL
@@ -44,11 +47,17 @@ suspend fun renderTgs(tgs: InputStream): ByteArray {
     return WebPage.renderLottie(script)
 }
 
-fun RedisClient.connectRaw(): StatefulRedisConnection<String, ByteArray> =
-    connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))!!
+fun kvget(key : String) : String? =
+    transaction { Configs.select { Configs.key eq key }.firstOrNull()?.getOrNull(Configs.value) }
 
-fun db(): RedisCommands<String, String> = UniBot.redisClient.sync()
-fun dbRaw(): RedisCommands<String, ByteArray> = UniBot.redisClientRaw.sync()
+fun kvset(key: String, value: String) {
+    transaction {
+        Configs.replace {
+            it[this.key] = key
+            it[this.value] = value
+        }
+    }
+}
 
 fun Group.toIMGroup() = IMGroup.QQ(id)
 
@@ -148,16 +157,20 @@ infix fun IMGroup.transfer(g: IMGroup) = FireWall.transferable(this, g)
 fun IMGroup.allConnection(): List<IMGroup> =
     listOf(this) + connection()
 
-fun IMGroup.connection(): List<IMGroup> =
-    Connections.connect.flatMap { conn ->
-        when {
-            conn.enable && conn is Connection.GroupForward && conn.groups.contains(this) ->
-                conn.groups.filter { it != this } .toSet()
-            conn.enable && conn is Connection.SingleForward && conn.from == this ->
-                setOf(conn.to)
-            else -> setOf()
-        }
-    }.toList()
+fun IMGroup.connection(): List<IMGroup> = when (this) {
+    is IMGroup.QQ -> {
+        val qid = id
+        transaction {
+            ConnectInfo.select { ConnectInfo.qq eq qid }.firstOrNull()?.get(ConnectInfo.tg)
+        }?.let { listOf(IMGroup.TG(it)) } ?: emptyList()
+    }
+    is IMGroup.TG -> {
+        val tid = id
+        transaction {
+            ConnectInfo.select { ConnectInfo.tg eq tid }.firstOrNull()?.get(ConnectInfo.qq)
+        }?.let { listOf(IMGroup.QQ(it)) } ?: emptyList()
+    }
+}
 
 fun IMMember.group() = when (this) {
     is IMMember.QQ -> IMGroup.QQ(group)

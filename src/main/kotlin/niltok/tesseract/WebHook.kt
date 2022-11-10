@@ -83,14 +83,14 @@ object WebHook {
 
     fun Route.webHookRoute() {
         post("/webhook/{id}") {
-            val templateInfo = db().hget("webhook:instance", context.parameters["id"].also {
-                if (it == null) call.respondText("no id provide", status = HttpStatusCode.BadRequest)
-            } ?: return@post).also {
-                if (it == null) call.respondText("id not find", status = HttpStatusCode.NotFound)
-            } ?: return@post
-            val template = SJson.decodeFromString<Template>(db().hget("webhook:template", templateInfo))
-            template.apply(call.request.headers, SJson.parseToJsonElement(call.receiveText()))?.let { }
-            call.respondText("ok")
+//            val templateInfo = db().hget("webhook:instance", context.parameters["id"].also {
+//                if (it == null) call.respondText("no id provide", status = HttpStatusCode.BadRequest)
+//            } ?: return@post).also {
+//                if (it == null) call.respondText("id not find", status = HttpStatusCode.NotFound)
+//            } ?: return@post
+//            val template = SJson.decodeFromString<Template>(db().hget("webhook:template", templateInfo))
+//            template.apply(call.request.headers, SJson.parseToJsonElement(call.receiveText()))?.let { }
+//            call.respondText("ok")
         }
     }
 }

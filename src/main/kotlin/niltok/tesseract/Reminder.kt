@@ -27,47 +27,47 @@ object Reminder {
                 at.target
             }
             val content = message.plainText().removePrefix(prefix).trim()
-            db().hset("core:reminders",
-                SJson.encodeToString(IMMember.QQ(group.id, id)),
-                SJson.encodeToString(Remind(content, duration)))
+//            db().hset("core:reminders",
+//                SJson.encodeToString(IMMember.QQ(group.id, id)),
+//                SJson.encodeToString(Remind(content, duration)))
             quoteReply("Done.")
         }
     }
 
     init {
-        UniBot.qq.eventChannel.subscribeGroupMessages {
-            case("remove reminder") {
-                db().hdel("core:reminders", SJson.encodeToString(sender.toIMMember()))
-                quoteReply("Done.")
-            }
-            startsWith("daily reminder ") {
-                setReminder("daily reminder ", Duration.ofHours(12).toMinutes())
-            }
-            startsWith("weak reminder ") {
-                setReminder("weak reminder", Duration.ofHours(3).toMinutes())
-            }
-            startsWith("medium reminder ") {
-                setReminder("medium reminder", Duration.ofMinutes(30).toMinutes())
-            }
-            startsWith("strong reminder ") {
-                setReminder("strong reminder", Duration.ofMinutes(5).toMinutes())
-            }
-            startsWith("crazy reminder ") {
-                setReminder("crazy reminder", Duration.ofMinutes(0).toMinutes())
-            }
-            always {
-                val remind: Remind = db().hget("core:reminders",
-                    SJson.encodeToString(sender.toIMMember()))?.let {
-                    SJson.decodeFromString(it)
-                } ?: return@always
-                val his = history[source.group.id]?.get(sender.id)
-                if (his == null || Date().toInstant() > his + Duration.ofMinutes(remind.duration)) {
-                    quoteReply(remind.content)
-                    if (history[source.group.id] == null)
-                        history[source.group.id] = mutableMapOf()
-                    history[source.group.id]!![sender.id] = Date().toInstant()
-                }
-            }
-        }
+//        UniBot.qq.eventChannel.subscribeGroupMessages {
+//            case("remove reminder") {
+//                db().hdel("core:reminders", SJson.encodeToString(sender.toIMMember()))
+//                quoteReply("Done.")
+//            }
+//            startsWith("daily reminder ") {
+//                setReminder("daily reminder ", Duration.ofHours(12).toMinutes())
+//            }
+//            startsWith("weak reminder ") {
+//                setReminder("weak reminder", Duration.ofHours(3).toMinutes())
+//            }
+//            startsWith("medium reminder ") {
+//                setReminder("medium reminder", Duration.ofMinutes(30).toMinutes())
+//            }
+//            startsWith("strong reminder ") {
+//                setReminder("strong reminder", Duration.ofMinutes(5).toMinutes())
+//            }
+//            startsWith("crazy reminder ") {
+//                setReminder("crazy reminder", Duration.ofMinutes(0).toMinutes())
+//            }
+//            always {
+//                val remind: Remind = db().hget("core:reminders",
+//                    SJson.encodeToString(sender.toIMMember()))?.let {
+//                    SJson.decodeFromString(it)
+//                } ?: return@always
+//                val his = history[source.group.id]?.get(sender.id)
+//                if (his == null || Date().toInstant() > his + Duration.ofMinutes(remind.duration)) {
+//                    quoteReply(remind.content)
+//                    if (history[source.group.id] == null)
+//                        history[source.group.id] = mutableMapOf()
+//                    history[source.group.id]!![sender.id] = Date().toInstant()
+//                }
+//            }
+//        }
     }
 }

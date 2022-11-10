@@ -15,6 +15,9 @@ import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.message.data.ImageType
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import net.mamoe.mirai.utils.MiraiLogger
+import org.jetbrains.exposed.sql.replace
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
 import java.net.URL
 import java.util.*
@@ -79,12 +82,19 @@ object Picture {
     }
 
     private fun getDic(g: IMGroup): MutableMap<String, String> =
-        db().hget("core:image:index", SJson.encodeToString(g))?.let {
+        transaction {
+            PicIndex.select { PicIndex.group eq SJson.encodeToString(g) }.firstOrNull()?.get(PicIndex.pics)
+        }?.let {
             SJson.decodeFromString(it)
         } ?: mutableMapOf()
 
     private fun setDic(g: IMGroup, m: MutableMap<String, String>) {
-        db().hset("core:image:index", SJson.encodeToString(g), SJson.encodeToString(m))
+        transaction {
+            PicIndex.replace {
+                it[group] = SJson.encodeToString(g)
+                it[pics] = SJson.encodeToString(m)
+            }
+        }
     }
 
     private fun updateDic(g: IMGroup, f: (MutableMap<String, String>) -> Unit) {

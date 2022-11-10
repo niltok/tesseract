@@ -117,13 +117,12 @@ object Forward {
             logger.debug("receive tg ${msg.text}")
             val qq = Connections.findQQByTG(msg.chat.id)
             logger.info("transferring to ${msg.chat.id}")
-            if (qq == null ||
-                !(IMGroup.TG(msg.chat.id) transfer IMGroup.QQ(qq)) && msg.text?.contains("#SFQ") == false ||
-                msg.text?.contains("#NSFQ") == true) {
+            if (qq == null || (msg.text?.contains("#NSFQ") == true)
+                || msg.text?.contains("#SFQ") != true && !(IMGroup.TG(msg.chat.id) transfer IMGroup.QQ(qq))
+            ) {
                 return@lambda
             }
             val qGroup = UniBot.qq.groups[qq] ?: return@lambda
-
 
             val msgs = mutableListOf<Message>(PlainText((msg.displayName() + msg.forward_from.let {
                 it?.let { "[Forwarded from ${it.first_name} ${it.last_name.orEmpty()}]" } ?: ""

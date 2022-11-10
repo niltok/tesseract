@@ -9,8 +9,10 @@ import net.mamoe.mirai.event.events.BotInvitedJoinGroupRequestEvent
 import net.mamoe.mirai.event.subscribeMessages
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
+import net.mamoe.mirai.utils.MiraiExperimentalApi
 import java.net.URL
 
+@OptIn(MiraiExperimentalApi::class)
 object QQOther {
     init {
         val qq = UniBot.qq

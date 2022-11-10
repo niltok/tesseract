@@ -4,40 +4,72 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import net.mamoe.mirai.event.subscribeGroupMessages
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.replace
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.lang.Math.random
 import kotlin.math.*
+import kotlin.streams.toList
 
 object Markov {
     private const val rank = 3
-    private var state = ""
+    private var state = mutableListOf<String>()
 
-    private fun getP(g: IMGroup) =
-        db().hget("core:markov:p", SJson.encodeToString(g))?.toDoubleOrNull() ?: 0.0
+    private fun getP(g: IMGroup) = transaction {
+        MarkovConfig.select { MarkovConfig.group eq SJson.encodeToString(g) }
+            .firstOrNull()
+            ?.get(MarkovConfig.possibility)
+    } ?: 0.0
 
     private fun setP(g: IMGroup, p: Double) {
-        db().hset("core:markov:p", SJson.encodeToString(g), p.toString())
+        transaction {
+            MarkovConfig.replace {
+                it[group] = SJson.encodeToString(g)
+                it[possibility] = p
+            }
+        }
     }
 
-    private fun train1(c: Char) {
-        state += c
-        if (state.length < rank + 1) return
-        val m = getRoll(state.take(rank)) ?: mutableMapOf()
-        val r = m[state.takeLast(1)] ?: 0L
-        m[state.takeLast(1)] = r + 1L
-        putRoll(state.take(rank), m)
-        state = state.drop(1)
+    private fun train1(c: String) {
+        if (state.size < rank) {
+            state += c
+            return
+        }
+        val m = getRoll(state.joinToString("")) ?: mutableMapOf()
+        val r = m[c] ?: 0L
+        m[c] = r + 1L
+        putRoll(state.joinToString(""), m)
+        for (i in 1 until rank) state[i - 1] = state[i]
+        state[rank - 1] = c
     }
 
     private fun train(text: String) {
-        text.forEach { train1(it) }
+        text.codePoints().forEach { train1(Character.toChars(it).concatToString()) }
     }
 
     private fun putRoll(roll: String, m: MutableMap<String, Long>) {
-        db().hset("markov:data", roll, SJson.encodeToString(m))
+        try {
+            transaction {
+                MarkovData.replace {
+                    it[key] = roll
+                    it[next] = SJson.encodeToString(m)
+                }
+            }
+        } catch (e: Exception) {
+            println(e.message)
+        }
     }
     private fun getRoll(roll: String): MutableMap<String, Long>? {
-        return db().hget("markov:data", roll)?.let{
-            SJson.decodeFromString(it)
+        return try {
+            transaction {
+                MarkovData.select { MarkovData.key eq roll }.firstOrNull()?.get(MarkovData.next)
+            }?.let {
+                SJson.decodeFromString(it)
+            }
+        } catch (e: Exception) {
+            println(e.message)
+            null
         }
     }
 
