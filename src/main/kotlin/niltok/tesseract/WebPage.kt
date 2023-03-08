@@ -1,18 +1,16 @@
 package niltok.tesseract
 
 import com.ruiyun.jvppeteer.core.Puppeteer
-import com.ruiyun.jvppeteer.core.browser.BrowserFetcher
-import com.ruiyun.jvppeteer.options.*
-import kotlinx.coroutines.*
+import com.ruiyun.jvppeteer.options.LaunchOptionsBuilder
+import com.ruiyun.jvppeteer.options.ScreenshotOptions
+import com.ruiyun.jvppeteer.options.Viewport
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.double
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.util.*
-import kotlin.math.floor
+import java.util.stream.Collectors
 import kotlin.system.measureTimeMillis
 
 inline fun <T> printTime(prefix: String, f : () -> T) : T {
@@ -116,7 +114,9 @@ object WebPage {
                 let e = document.createElement('div')
                 e.id = "box$id"
                 e.className = "box"
-                e.innerHTML = katex.renderToString(String.raw`$tex`, {displayMode: true})
+                e.innerHTML = katex.renderToString(`${
+                    tex.codePoints().boxed().map { String.format("\\u%04x", it) }.collect(Collectors.joining())
+                }`, {displayMode: true})
                 document.body.append(e)
             })()
         """)
@@ -254,10 +254,10 @@ object WebPage {
 
 suspend fun main() {
     headless = true
-    renderTgs(File("lottie.tgs").inputStream())
-    File("lottie.gif").writeBytes(
+    WebPage.renderTex("test")
+    File("tex.png").writeBytes(
         printTime("Total") {
-            renderTgs(File("lottie.tgs").inputStream())
+            WebPage.renderTex("test")
         }
     )
     println("Done.")

@@ -9,6 +9,7 @@ import kotlinx.serialization.encodeToString
 import net.mamoe.mirai.contact.Contact.Companion.sendImage
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
+import net.mamoe.mirai.event.subscribeFriendMessages
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
@@ -202,6 +203,20 @@ object Picture {
                 }
             }
             always(onEvent = handleImReq())
+        }
+
+        UniBot.qq.eventChannel.subscribeFriendMessages {
+            startsWith("plz transfer pic from ", true) {
+                error {
+                    testGSu()
+                    val ids = it.split("to").map { it.trim().toLong() }
+                    val ori = getDic(IMGroup.QQ(ids[0]))
+                    updateDic(IMGroup.QQ(ids[1])) {
+                        ori.forEach { (k, v) -> it[k] = v }
+                    }
+                    reply("done.")
+                }
+            }
         }
 
         with(UniBot.tg) {

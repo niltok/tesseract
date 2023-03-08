@@ -31,6 +31,7 @@ object Forward {
                 logger.info("cannot find connect by qq ${subject.id}")
                 return@lambda
             }
+            logger.info("transferring to $tGroup")
 
             var reply: Long? = null
             val imgs = mutableListOf<String>()
@@ -68,7 +69,7 @@ object Forward {
                                 }" }
                             } }"
                         is FileMessage -> {
-                            (it.takeIf { it.size <= 2 * 1024 * 1024 } ?: return "[Large File ${it.name}]")
+                            (it.takeIf { it.size <= 20 * 1024 * 1024 } ?: return "[Large File ${it.name}]")
                                 .toAbsoluteFile(group)?.getUrl()?.let { url ->
                                     files.add(url)
                                     "[File ${it.name}]"
@@ -114,15 +115,15 @@ object Forward {
         val handleTg: suspend Bot.(TGMsg) -> Unit = lambda@{ msg ->
             if (Instant.ofEpochSecond(msg.date.toLong()) + Duration.ofMinutes(3) < Date().toInstant())
                 return@lambda
-            logger.debug("receive tg ${msg.text}")
+            logger.debug("receive tg: ${msg.text}")
             val qq = Connections.findQQByTG(msg.chat.id)
-            logger.info("transferring to ${msg.chat.id}")
             if (qq == null || (msg.text?.contains("#NSFQ") == true)
                 || msg.text?.contains("#SFQ") != true && !(IMGroup.TG(msg.chat.id) transfer IMGroup.QQ(qq))
             ) {
                 return@lambda
             }
             val qGroup = UniBot.qq.groups[qq] ?: return@lambda
+            logger.info("transferring to ${qGroup.id}")
 
             val msgs = mutableListOf<Message>(PlainText((msg.displayName() + msg.forward_from.let {
                 it?.let { "[Forwarded from ${it.first_name} ${it.last_name.orEmpty()}]" } ?: ""
@@ -149,7 +150,7 @@ object Forward {
             }
 
             msg.document?.let {
-                if (it.file_size > 2 * 1024 * 1024) {
+                if (it.file_size > 20 * 1024 * 1024) {
                     msgs.add(PlainText("[Large File ${it.file_name}]"))
                     return@let
                 }

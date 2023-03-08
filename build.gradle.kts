@@ -29,7 +29,7 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("net.mamoe:mirai-core:2.13.0-RC2")
+    implementation("net.mamoe:mirai-core:2.14.0")
     implementation("com.github.elbekD:kt-telegram-bot:1.4.1")
     implementation("io.ktor:ktor-server-netty:2.1.2")
     //implementation("dev.inmo:tgbotapi:0.37.1")
@@ -44,7 +44,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
-    implementation("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.9")
+    implementation("org.postgresql:postgresql:42.2.2")
     implementation("com.squareup:gifencoder:0.10.1")
     testImplementation(group = "junit", name = "junit", version = "4.13.1")
 }
