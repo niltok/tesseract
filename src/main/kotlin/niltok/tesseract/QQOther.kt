@@ -68,8 +68,15 @@ object QQOther {
             case("kiss me") quoteReply (Face(Face.亲亲))
             case("mention all") reply (AtAll)
             startsWith("tex#", true) {
-                error {
+                try {
                     subject.sendMessage(WebPage.renderTex(it).inputStream().uploadAsImage(subject))
+                } catch (e:Exception) {
+                    e.localizedMessage.let {
+                        if (it.startsWith("Evaluation failed: ParseError: KaTeX parse error: ")) {
+                            it.removePrefix("Evaluation failed: ParseError: ")
+                            quoteReply(it.substringBefore("    at new e (https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js:1:864)"))
+                        } else quoteReply(it)
+                    }
                 }
             }
             always {
